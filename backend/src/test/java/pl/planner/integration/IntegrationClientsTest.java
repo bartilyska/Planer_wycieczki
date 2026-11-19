@@ -187,16 +187,17 @@ class IntegrationClientsTest {
                     + "?fromLocationId=attr-02&mode=PUBLIC_TRANSPORT&diet=VEGETARIAN",
                     sent.url().toString());
             return response(HttpStatus.OK, """
-                    {"fromLocationId":"attr-02","mode":"PUBLIC_TRANSPORT","proposals":[
+                    {"fromLocationId":"attr-02","transportMode":"PUBLIC_TRANSPORT","diet":"VEGETARIAN","proposals":[
                        {"placeName":"Bistro Zielone","locationId":"rest-01","mealId":"meal-01","mealName":"Krem z dyni",
-                        "mealCostGrosze":1800,"visitDurationMin":45,"travelDurationMin":19,
-                        "travelCostGrosze":960,"transportFromCache":true}
+                        "mealPriceGroszy":1800,"visitDurationMinutes":45,"travelDurationMinutes":19,
+                        "travelPriceGroszy":960,"transportFromCache":true}
                     ]}
                     """);
         });
         var meal = gastronomy.proposals("attr-02", request).getFirst();
         assertEquals("rest-01", meal.locationId());
         assertEquals(5400L, meal.priceGroszy());
+        assertEquals(45, meal.visitMinutes());
         assertEquals(19, meal.inbound().minutes().intValue());
         assertEquals(2880L, meal.inbound().priceGroszy().longValue());
         assertTrue(meal.transportFromCache());

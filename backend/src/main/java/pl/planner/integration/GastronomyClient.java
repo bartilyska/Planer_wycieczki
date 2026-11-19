@@ -1,5 +1,6 @@
 package pl.planner.integration;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import java.util.Optional;
@@ -88,12 +89,15 @@ public class GastronomyClient implements PlannerSources.Gastronomy {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ProposalsResponse(String fromLocationId, TransportMode mode, List<Proposal> proposals) {}
+    record ProposalsResponse(String fromLocationId, @JsonAlias("transportMode") TransportMode mode,
+                             List<Proposal> proposals) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Proposal(String placeName, String locationId, String mealId, String mealName,
-                    Long mealCostGrosze, Integer visitDurationMin, Integer travelDurationMin,
-                    Long travelCostGrosze, Boolean transportFromCache) {}
+                    @JsonAlias("mealPriceGroszy") Long mealCostGrosze,
+                    @JsonAlias("visitDurationMinutes") Integer visitDurationMin,
+                    @JsonAlias("travelDurationMinutes") Integer travelDurationMin,
+                    @JsonAlias("travelPriceGroszy") Long travelCostGrosze, Boolean transportFromCache) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record ErrorPayload(String error) {}
