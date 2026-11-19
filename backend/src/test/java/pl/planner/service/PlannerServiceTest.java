@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import pl.planner.config.PlannerProperties;
 import pl.planner.dto.Attraction;
@@ -46,30 +47,32 @@ class PlannerServiceTest {
     @Test
     void previewsInManualOrderAndIncludesMealAndReturn() {
         var leg = new Journey(10, BigDecimal.ONE, 200L, "CAR", List.of());
-        setAttractions(leg, leg);
-        when(transport.leg(any(), any(), eq(TransportMode.CAR)))
-                .thenReturn(leg);
+        var proposalLeg = new Journey(50, null, 9999L, "CAR", List.of());
+        setAttractions(proposalLeg, proposalLeg);
+        when(transport.fromStart(eq(START), anyMap(), eq(TransportMode.CAR), eq(1)))
+                .thenReturn(Map.of("attr-park", leg, "attr-museum", leg));
         when(gastronomy.venues("Warszawa", DATE))
-                .thenReturn(List.of(new Venue("lunch", "Bistro", "Centrum", MUSEUM, "bistro", 3000L, 40, List.of())));
+                .thenReturn(List.of(new Venue("lunch", "Bistro", "Centrum", MUSEUM, "bistro", 3000L, 40, List.of(), "attr-museum")));
 
         var plan = planner.plan(request(true, true), false);
 
         assertEquals(List.of(Type.TRANSPORT, Type.ATTRACTION, Type.TRANSPORT, Type.ATTRACTION, Type.GASTRONOMY, Type.TRANSPORT),
                 plan.items().stream().map(Item::type).toList());
         assertEquals("park", plan.items().get(1).id());
-        assertEquals(130, plan.totalDurationMinutes());
-        assertEquals(5600L, plan.totalCostGroszy());
-        assertEquals(LocalTime.of(13, 10), plan.items().getLast().endTime());
+        assertTrue(plan.items().get(2).name().contains("przez punkt startowy"));
+        assertEquals(140, plan.totalDurationMinutes());
+        assertEquals(5800L, plan.totalCostGroszy());
+        assertEquals(LocalTime.of(13, 20), plan.items().getLast().endTime());
         assertTrue(plan.warnings().isEmpty());
-        verify(transport).leg(PARK, MUSEUM, TransportMode.CAR);
+        verify(transport).fromStart(START, Map.of("attr-park", PARK, "attr-museum", MUSEUM), TransportMode.CAR, 1);
         verifyNoMoreInteractions(transport);
     }
 
     @Test
     void optimizesForRainAndMarksMissingTimeAndCosts() {
         setAttractions(null, null);
-        when(transport.leg(any(), any(), any()))
-                .thenThrow(new IntegrationFailure("Transport", Reason.NOT_CONFIGURED));
+        when(transport.fromStart(any(), anyMap(), any(), anyInt()))
+                .thenThrow(new IntegrationFailure("Transport", Reason.TIMEOUT));
         when(gastronomy.venues("Warszawa", DATE))
                 .thenThrow(new IntegrationFailure("Gastronomia", Reason.CONTRACT_PENDING));
 
@@ -85,11 +88,24 @@ class PlannerServiceTest {
         assertEquals(4, plan.warnings().size());
     }
 
+    @Test
+    void noConnectionStaysUnknownEvenWhenAttractionsHaveAnOlderQuote() {
+        var oldQuote = new Journey(10, null, 200L, "CAR", List.of());
+        setAttractions(oldQuote, oldQuote);
+        when(transport.fromStart(any(), anyMap(), any(), anyInt())).thenReturn(Map.of());
+
+        var plan = planner.plan(request(false, true), false);
+
+        assertEquals(60, plan.totalDurationMinutes());
+        assertEquals(2000L, plan.totalCostGroszy());
+        assertTrue(plan.warnings().stream().anyMatch(warning -> warning.contains("brak połączenia")));
+    }
+
     private void setAttractions(Journey fromStart, Journey toStart) {
         var park = new Attraction("park", "Park", "Warszawa", null,
-                "przyroda", false, 0L, 30, PARK, List.of());
+                "przyroda", false, 0L, 30, PARK, List.of(), Map.of(), "attr-park");
         var museum = new Attraction("museum", "Muzeum", "Warszawa", null,
-                "kultura", true, 2000L, 30, MUSEUM, List.of());
+                "kultura", true, 2000L, 30, MUSEUM, List.of(), Map.of(), "attr-museum");
         when(attractions.day(any())).thenReturn(new DayData(
                 new Weather(BigDecimal.TEN, "Deszcz", Condition.ADVERSE_OUTDOOR, true),
                 List.of(new DayProposal(park, fromStart, null), new DayProposal(museum, null, toStart)), null));

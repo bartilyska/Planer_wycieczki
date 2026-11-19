@@ -3,6 +3,7 @@ package pl.planner.integration;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import pl.planner.dto.Attraction;
 import pl.planner.dto.Place;
 import pl.planner.dto.PlanRequest;
@@ -21,7 +22,9 @@ public final class PlannerSources {
     }
 
     public interface Transport {
-        Journey leg(Place from, Place to, TransportMode mode);
+        String START = "start";
+
+        Map<String, Journey> fromStart(Place start, Map<String, Place> destinations, TransportMode mode, int people);
     }
 
     public interface Gastronomy {
@@ -29,7 +32,11 @@ public final class PlannerSources {
     }
 
     public record Journey(Integer minutes, BigDecimal distanceKm, Long priceGroszy,
-                          String mode, List<Place> route) {}
+                          String mode, List<Place> route, boolean viaStart) {
+        public Journey(Integer minutes, BigDecimal distanceKm, Long priceGroszy, String mode, List<Place> route) {
+            this(minutes, distanceKm, priceGroszy, mode, route, false);
+        }
+    }
 
     public record Category(String code, String name) {}
     public record DayData(Weather weather, List<DayProposal> proposals, String travelWarning) {}
@@ -37,5 +44,5 @@ public final class PlannerSources {
 
     public record Venue(String id, String name, String address, Place coordinates,
                         String category, Long priceGroszy, Integer durationMinutes,
-                        List<Attraction.OpeningWindow> openingHours) {}
+                        List<Attraction.OpeningWindow> openingHours, String transportLocationId) {}
 }

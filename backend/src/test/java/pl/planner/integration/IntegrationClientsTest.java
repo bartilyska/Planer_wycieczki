@@ -4,10 +4,12 @@ import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientRequest;
@@ -68,6 +70,7 @@ class IntegrationClientsTest {
         assertTrue(item.indoor());
         assertEquals(2515L, item.priceGroszy().longValue());
         assertEquals(new Place(52.22, 21.01), item.coordinates());
+        assertEquals("attr-01", item.transportLocationId());
         assertEquals(LocalTime.of(10, 0), client.detail("ATR01").weeklyOpeningHours().get(DayOfWeek.SUNDAY).from());
         assertEquals("Muzeum", client.categories().getFirst().name());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(PlanProblem.class, () -> client.detail("missing")).status());
@@ -144,15 +147,39 @@ class IntegrationClientsTest {
     }
 
     @Test
+    void readsTransportBatchAndMapsLocationIdsAndGroupCost() {
+        when(network.exchange(any())).thenAnswer(call -> {
+            var request = call.getArgument(0, ClientRequest.class);
+            assertEquals(HttpMethod.POST, request.method());
+            assertEquals("http://172.20.147.17:8083/api/v1/routes", request.url().toString());
+            return response(HttpStatus.OK, """
+                    {"mode":"PUBLIC_TRANSPORT","results":[
+                      {"fromLocationId":"start","toLocationId":"ATR_001","status":"OK","durationMin":9,"costGrosze":480},
+                      {"fromLocationId":"start","toLocationId":"rest-04","status":"NO_CONNECTION"}
+                    ]}
+                    """);
+        });
+        var service = new Service("http://172.20.147.17:8083", Duration.ofSeconds(2));
+        var transport = new TransportClient(http, new IntegrationProperties(configured, service, configured), "attr-01=ATR_001");
+        var start = new Place(52.22, 21.01);
+        var destinations = new LinkedHashMap<String, Place>();
+        destinations.put("attr-01", new Place(52.23, 21.02));
+        destinations.put("rest-04", new Place(52.24, 21.03));
+
+        var trips = transport.fromStart(start, destinations, TransportMode.PUBLIC_TRANSPORT, 3);
+
+        assertEquals(1, trips.size());
+        assertEquals(9, trips.get("attr-01").minutes().intValue());
+        assertEquals(1440L, trips.get("attr-01").priceGroszy().longValue());
+        assertNull(trips.get("attr-01").distanceKm());
+        assertFalse(trips.containsKey("rest-04"));
+    }
+
+    @Test
     void timesOutAndDoesNotContactServicesWithoutConfigurationOrContract() {
         var beans = new StaticListableBeanFactory();
         var day = LocalDate.of(2026, 11, 20);
-        var transport = new TransportClient(http, properties, beans.getBeanProvider(TransportClient.Contract.class));
         var gastronomy = new GastronomyClient(http, properties, beans.getBeanProvider(GastronomyClient.Contract.class));
-        var start = new Place(52.22, 21.01);
-        var end = new Place(52.23, 21.02);
-
-        assertEquals(Reason.CONTRACT_PENDING, assertThrows(IntegrationFailure.class, () -> transport.leg(start, end, TransportMode.CAR)).reason());
         assertEquals(Reason.NOT_CONFIGURED, assertThrows(IntegrationFailure.class, () -> gastronomy.venues("Warszawa", day)).reason());
         verifyNoInteractions(network);
 

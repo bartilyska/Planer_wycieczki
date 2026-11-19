@@ -2,12 +2,12 @@ package pl.planner.service;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import org.springframework.stereotype.Component;
 import pl.planner.dto.Attraction;
 import pl.planner.dto.PlanResponse.Condition;
 import pl.planner.dto.PlanResponse.Weather;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.service.RouteLookup.Stop;
 
 @Component
 final class PlanOptimizer {
@@ -18,11 +18,13 @@ final class PlanOptimizer {
     }
 
     private double score(Attraction attraction, Schedule schedule, RouteLookup routes, Weather weather) {
-        var point = schedule.point();
+        var point = schedule.point().coordinates();
         var target = attraction.coordinates();
-        Journey journey = Objects.equals(point, target) && point != null ? null : routes.between(point, target);
+        var destination = Stop.of(attraction);
+        Journey journey = routes.between(schedule.point(), destination);
         Integer minutes = journey == null ? null : journey.minutes();
-        double travelRank = minutes != null ? minutes : (point != null && target != null ? point.distanceTo(target) * 4 : 25);
+        double travelRank = schedule.point().same(destination) ? 0
+                : minutes != null ? minutes : (point != null && target != null ? point.distanceTo(target) * 4 : 25);
         var arrival = schedule.time().plusMinutes(minutes == null ? 0 : minutes);
         var opening = Schedule.firstOpening(arrival, attraction.durationMinutes(), attraction.openingHours());
         if (opening == null || opening.plusMinutes(attraction.durationMinutes()).isAfter(schedule.limit())) {

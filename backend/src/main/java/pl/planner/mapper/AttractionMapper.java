@@ -33,7 +33,8 @@ public class AttractionMapper {
             });
         }
         return new Attraction(source.id(), source.name(), null, source.description(), source.category(), source.indoor(),
-                groszy(source.pricePerPerson()), source.visitDurationMin(), coordinates(source.location()), List.of(), Map.copyOf(hours));
+                groszy(source.pricePerPerson()), source.visitDurationMin(), coordinates(source.location()), List.of(),
+                Map.copyOf(hours), source.location() == null ? null : source.location().id());
     }
 
     public DayData day(AttractionPayload.Day source, PlanRequest request) {
@@ -50,7 +51,8 @@ public class AttractionMapper {
         var hours = source.openingHours() == null ? List.<OpeningWindow>of() : List.of(window(source.openingHours()));
         var cost = source.ticket() == null ? null : groszy(source.ticket().total());
         var attraction = new Attraction(source.id(), source.name(), null, null, source.category(), source.indoor(),
-                cost, source.visitDurationMin(), coordinates(source.location()), hours);
+                cost, source.visitDurationMin(), coordinates(source.location()), hours, Map.of(),
+                source.location() == null ? null : source.location().id());
         return new DayProposal(attraction, leg(source.fromStart(), mode), leg(source.toStart(), mode));
     }
 

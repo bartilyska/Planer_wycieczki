@@ -12,38 +12,40 @@ import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanResponse.Item;
 import pl.planner.dto.PlanResponse.Type;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.service.RouteLookup.Stop;
 
 final class Schedule {
     private final List<Item> items = new ArrayList<>();
     private final LocalDateTime start;
     private final LocalDateTime limit;
     private LocalDateTime time;
-    private Place point;
+    private Stop point;
 
     Schedule(PlanRequest request) {
         start = request.date().atTime(request.startTime());
         limit = request.date().atTime(request.endTime() == null ? LocalTime.of(23, 59) : request.endTime());
         time = start;
-        point = request.startLocation();
+        point = Stop.start(request.startLocation());
     }
 
     LocalDateTime time() { return time; }
     LocalDateTime limit() { return limit; }
-    Place point() { return point; }
+    Stop point() { return point; }
     List<Item> items() { return List.copyOf(items); }
     int minutes() { return Math.toIntExact(ChronoUnit.MINUTES.between(start, time)); }
 
     void waitUntil(LocalDateTime until) {
         if (until.isAfter(time)) {
             add("wait-" + items.size(), Type.WAIT, "Przerwa w harmonogramie",
-                    Math.toIntExact(ChronoUnit.MINUTES.between(time, until)), 0L, null, point, null);
+                    Math.toIntExact(ChronoUnit.MINUTES.between(time, until)), 0L, null, point.coordinates(), null);
         }
     }
 
-    void travel(String name, Place destination, Journey journey) {
-        if (!Objects.equals(point, destination) || destination == null) {
-            add("transport-" + items.size(), Type.TRANSPORT, name, journey == null ? null : journey.minutes(),
-                    journey == null ? null : journey.priceGroszy(), null, destination, journey);
+    void travel(String name, Stop destination, Journey journey) {
+        if (!point.same(destination)) {
+            String label = journey != null && journey.viaStart() ? name + " (przez punkt startowy)" : name;
+            add("transport-" + items.size(), Type.TRANSPORT, label, journey == null ? null : journey.minutes(),
+                    journey == null ? null : journey.priceGroszy(), null, destination.coordinates(), journey);
         }
         point = destination;
     }

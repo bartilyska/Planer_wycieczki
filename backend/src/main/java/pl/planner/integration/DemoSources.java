@@ -5,6 +5,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import pl.planner.dto.Attraction;
@@ -55,34 +57,41 @@ public class DemoSources implements PlannerSources.Attractions,
         var proposals = request.attractionIds().stream().map(this::detail).map(item ->
                 new DayProposal(new Attraction(item.id(), item.name(), item.location(), item.description(), item.category(),
                         item.indoor(), item.priceGroszy() * request.groupSize(), item.durationMinutes(), item.coordinates(),
-                        item.openingHours()), null, null)).toList();
+                        item.openingHours(), Map.of(), item.transportLocationId()), null, null)).toList();
         var weather = new Weather(BigDecimal.valueOf(18), "Słonecznie · prognoza przykładowa", Condition.FAVORABLE_OUTDOOR, true);
         return new DayData(weather, proposals, null);
     }
 
     @Override
-    public Journey leg(Place from, Place to, TransportMode mode) {
+    public Map<String, Journey> fromStart(Place start, Map<String, Place> destinations, TransportMode mode, int people) {
         double speed = switch (mode) {
             case WALK -> 4.5;
             case BIKE -> 14;
             case PUBLIC_TRANSPORT -> 17;
             case CAR -> 24;
         };
-        double distance = from.distanceTo(to) * 1.25;
-        Long cost = mode == TransportMode.PUBLIC_TRANSPORT ? 440L : 0L;
-        return new Journey((int) Math.ceil(distance / speed * 60),
-                BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP), cost, mode.name(), List.of());
+        long cost = mode == TransportMode.PUBLIC_TRANSPORT ? 440L * people : 0L;
+        var journeys = new HashMap<String, Journey>();
+        destinations.forEach((id, point) -> {
+            if (point != null) {
+                double distance = start.distanceTo(point) * 1.25;
+                journeys.put(id, new Journey((int) Math.ceil(distance / speed * 60),
+                        BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP), cost, mode.name(), List.of()));
+            }
+        });
+        return journeys;
     }
 
     @Override
     public List<Venue> venues(String city, LocalDate date) {
         Place point = city.equalsIgnoreCase("Kraków") ? new Place(50.0580, 19.9373) : new Place(52.2330, 21.0199);
         return List.of(new Venue("demo-lunch", "Bistro Podróżnika · przykład", city, point, "Bistro", 3900L, 45,
-                List.of(new OpeningWindow(LocalTime.of(11, 30), LocalTime.of(21, 0)))));
+                List.of(new OpeningWindow(LocalTime.of(11, 30), LocalTime.of(21, 0))), "demo-lunch"));
     }
 
     private static Attraction attraction(String id, String name, String city, String description, String category,
                                          boolean indoor, long price, int duration, double lat, double lng) {
-        return new Attraction(id, name, city, description, category, indoor, price, duration, new Place(lat, lng), List.of());
+        return new Attraction(id, name, city, description, category, indoor, price, duration, new Place(lat, lng),
+                List.of(), Map.of(), id);
     }
 }

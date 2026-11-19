@@ -32,10 +32,12 @@ java -jar target/planner-integration-0.1.0-SNAPSHOT.jar
 | `ATTRACTIONS_URL` | `http://172.20.147.24:8000` |
 | `ATTRACTIONS_TOKEN` | Pusty. Token JWT z zakresem `attractions.read` dla profili wymagających autoryzacji. |
 | `TRANSPORT_URL` | `http://172.20.147.17:8083` |
+| `TRANSPORT_TIMEOUT` | `2s` na zapytanie do Transportu. |
+| `TRANSPORT_LOCATION_ID_MAP` | Pusty. Opcjonalne powiązania `ID_źródłowe=ID_w_Transporcie` oddzielone przecinkami. |
 | `GASTRONOMY_URL` | `http://172.20.147.27:8080` |
 | `DISCOVERY_ENABLED` | `false`. Włącz po sprawdzeniu integracji pod adresami statycznymi. |
 | `DISCOVERY_URL` | `http://172.20.147.20:8080` |
-| `ATTRACTIONS_TIMEOUT`, `TRANSPORT_TIMEOUT`, `GASTRONOMY_TIMEOUT` | `5000ms` każda. Timeout pojedynczego wywołania zewnętrznego, łącznie z odczytem odpowiedzi. |
+| `ATTRACTIONS_TIMEOUT`, `GASTRONOMY_TIMEOUT` | `5000ms` każda. Timeout pojedynczego wywołania zewnętrznego, łącznie z odczytem odpowiedzi. |
 
 ## REST API
 
@@ -68,7 +70,7 @@ curl -sS http://localhost:8080/api/plans/preview \
 
 Plan jest jednodniowy. `endTime` to opcjonalna granica, domyślnie 23:59. Jedno żądanie może zawierać od 1 do 12 różnych atrakcji. Godziny mają dokładność do minuty, a kwoty są całkowitymi liczbami groszy. Optymalizacja stosuje heurystykę zachłanną opartą na czasie przejazdu, odległości w linii prostej do celów oceny kolejności, warunkach pogodowych i dostępnych godzinach otwarcia. Dystans w linii prostej nie jest publikowany jako dystans przejazdu. Godziny otwarcia w modelu wewnętrznym to przedziały przypisane do dnia planu.
 
-Opcjonalne pole `people` przyjmuje wartości od 1 do 20 i domyślnie wynosi 1. Ceny w katalogu dotyczą jednej osoby. Plan używa kosztów grupowych zwróconych w propozycjach, w tym sumy biletów i dostępnych przejazdów. W trybie integracji środki transportu to `WALK`, `PUBLIC_TRANSPORT` i `CAR`. Atrakcje opisują punkt startowy w pobliżu współrzędnych `52.2297, 21.0122`.
+Opcjonalne pole `people` przyjmuje wartości od 1 do 20 i domyślnie wynosi 1. Ceny w katalogu dotyczą jednej osoby. Plan używa sumy biletów z propozycji Atrakcji oraz mnoży stawkę Transportu w groszach przez liczbę osób. W trybie integracji środki transportu to `WALK`, `PUBLIC_TRANSPORT` i `CAR`. Atrakcje opisują punkt startowy w pobliżu współrzędnych `52.2297, 21.0122`.
 
 Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `endTime` i `durationMinutes` są puste. Brak ceny lub czasu obniża kompletność sum, co sygnalizują pola `costComplete` i `durationComplete`. Odpowiedź zawiera ostrzeżenia o brakujących integracjach lub danych. Błędy krytyczne przyjmują format Problem Details. HTTP 400 oznacza błędne wejście lub przekroczony przedział harmonogramu, 404 potwierdzony brak atrakcji, 503 problem z obowiązkową integracją, a 500 nieoczekiwany błąd.
 
@@ -78,10 +80,12 @@ Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `e
 | --- | --- |
 | Atrakcje | Klient HTTP korzysta z `/api/v1/attractions`, `/api/v1/attractions/{id}`, `/api/v1/categories` i `/api/v1/attractions/proposals`. Plan przyjmuje wyłącznie pozycje dostępne w propozycjach dla wskazanego dnia, startu i środka transportu. |
 | Pogoda | Planer mapuje pole `weather` z dziennych propozycji Atrakcji. |
-| Transport | Odcinki między startem a atrakcjami pochodzą z `fromStart` i `toStart` w propozycjach Atrakcji. Do przejazdów między atrakcjami i do lokali potrzebny jest osobny kontrakt i adapter `TransportClient.Contract`. |
+| Transport | `POST /api/v1/routes` podaje czas i koszt odcinków `start` ↔ punkt. Planer może połączyć dwa potwierdzone odcinki przez start i oznacza to w harmonogramie. Transport nie zwraca dystansu ani geometrii. |
 | Gastronomia | Po uzgodnieniu protokołu należy dostarczyć komponent `GastronomyClient.Contract`. Adapter mapuje dane na `PlannerSources.Venue` i dostępne godziny otwarcia. |
 
 Po wdrożeniu adaptera we właściwym komponencie i ustawieniu adresu serwisu frontend korzysta z tych samych endpointów planera. Stan `CONFIGURED` sygnalizuje skonfigurowanie adresu i dostępność kodu adaptera. Wynik wywołania konkretnej usługi pojawia się w odpowiedzi katalogu lub w ostrzeżeniach planu.
+
+Planer przekazuje do Transportu `location.id` otrzymane z Atrakcji. Jeśli zespoły używają różnych ID, wpisz w `TRANSPORT_LOCATION_ID_MAP` potwierdzone pary, np. `id-w-atrakcjach=ID_W_TRANSPORCIE`. Lokale będą korzystać z tego mechanizmu, gdy adapter Gastronomii dostarczy ich identyfikatory transportowe. Odpowiedź `NO_CONNECTION` oznacza brak odcinka dla wskazanej pary i trybu. Przy awarii lub timeoutie Planer zgłasza ostrzeżenie i wykorzystuje dostępne czasy oraz koszty z propozycji Atrakcji.
 
 ### Discovery
 

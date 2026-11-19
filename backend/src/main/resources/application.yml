@@ -22,7 +22,8 @@ integration:
     token: ${ATTRACTIONS_TOKEN:}
   transport:
     base-url: ${TRANSPORT_URL:http://172.20.147.17:8083}
-    timeout: ${TRANSPORT_TIMEOUT:5000ms}
+    timeout: ${TRANSPORT_TIMEOUT:2s}
+    location-id-map: ${TRANSPORT_LOCATION_ID_MAP:}
   gastronomy:
     base-url: ${GASTRONOMY_URL:http://172.20.147.27:8080}
     timeout: ${GASTRONOMY_TIMEOUT:5000ms}

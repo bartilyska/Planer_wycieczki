@@ -31,7 +31,7 @@ public final class AttractionPayload {
                            Leg fromStart, Leg toStart) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Coordinates(Double lat, Double lng) {}
+    public record Coordinates(String id, Double lat, Double lng) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Hours(LocalTime open, LocalTime close) {}

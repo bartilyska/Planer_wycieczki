@@ -8,12 +8,8 @@ import java.util.Map;
 
 public record Attraction(String id, String name, String location, String description, String category,
                          Boolean indoor, Long priceGroszy, int durationMinutes, Place coordinates,
-                         List<OpeningWindow> openingHours, Map<DayOfWeek, OpeningWindow> weeklyOpeningHours) {
-    public Attraction(String id, String name, String location, String description, String category,
-                      Boolean indoor, Long priceGroszy, int durationMinutes, Place coordinates, List<OpeningWindow> openingHours) {
-        this(id, name, location, description, category, indoor, priceGroszy, durationMinutes, coordinates, openingHours, Map.of());
-    }
-
+                         List<OpeningWindow> openingHours, Map<DayOfWeek, OpeningWindow> weeklyOpeningHours,
+                         String transportLocationId) {
     public record OpeningWindow(@JsonFormat(pattern = "HH:mm") LocalTime from,
                                 @JsonFormat(pattern = "HH:mm") LocalTime to) {}
 }

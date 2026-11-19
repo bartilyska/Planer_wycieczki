@@ -16,7 +16,6 @@ import pl.planner.dto.PlannerOptions.Mode;
 import pl.planner.dto.PlannerOptions.Status;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.integration.GastronomyClient;
-import pl.planner.integration.TransportClient;
 
 import static pl.planner.dto.PlanRequest.TransportMode.*;
 
@@ -26,17 +25,15 @@ public class OptionsService {
     private final PlannerProperties planner;
     private final IntegrationProperties integration;
     private final Clock clock;
-    private final ObjectProvider<TransportClient.Contract> transport;
     private final ObjectProvider<GastronomyClient.Contract> gastronomy;
 
     public OptionsService(AttractionCatalog catalog, PlannerProperties planner, IntegrationProperties integration,
-                          Clock clock, ObjectProvider<TransportClient.Contract> transport,
+                          Clock clock,
                           ObjectProvider<GastronomyClient.Contract> gastronomy) {
         this.catalog = catalog;
         this.planner = planner;
         this.integration = integration;
         this.clock = clock;
-        this.transport = transport;
         this.gastronomy = gastronomy;
     }
 
@@ -49,7 +46,7 @@ public class OptionsService {
                 List.copyOf(catalogInfo.categories().keySet()), modes,
                 Map.of("attractions", catalogInfo.status(),
                         "weather", catalogInfo.status(),
-                        "transport", status(integration.transport(), transport.getIfAvailable() != null),
+                        "transport", status(integration.transport(), true),
                         "gastronomy", status(integration.gastronomy(), gastronomy.getIfAvailable() != null)),
                 true, true, catalogInfo.warning(), catalogInfo.categories(),
                 planner.demo() ? null : new Place(52.2297, 21.0122));

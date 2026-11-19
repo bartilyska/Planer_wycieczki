@@ -14,7 +14,6 @@ import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import pl.planner.config.PlannerProperties;
 import pl.planner.dto.Attraction;
-import pl.planner.dto.Place;
 import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanResponse;
 import pl.planner.dto.PlanResponse.Type;
@@ -26,6 +25,7 @@ import pl.planner.integration.PlannerSources.Gastronomy;
 import pl.planner.integration.PlannerSources.Journey;
 import pl.planner.integration.PlannerSources.Transport;
 import pl.planner.integration.PlannerSources.Venue;
+import pl.planner.service.RouteLookup.Stop;
 
 @Service
 public class PlannerService {
@@ -60,17 +60,11 @@ public class PlannerService {
         Set<String> warnings = new LinkedHashSet<>();
         Weather weather = day.weather();
         if (!weather.available()) warnings.add("Pogoda — Atrakcje nie udostępniły prognozy dla wybranego dnia.");
-        if (day.travelWarning() != null) warnings.add(day.travelWarning());
         List<Venue> venues = request.includeGastronomy()
                 ? optional(() -> gastronomy.venues(city, request.date()), null, warnings) : null;
 
         var schedule = new Schedule(request);
-        var routes = new RouteLookup(transport, request.transportMode(), warnings);
-        for (var proposal : day.proposals()) {
-            var point = proposal.attraction().coordinates();
-            routes.remember(request.startLocation(), point, proposal.fromStart());
-            routes.remember(point, request.startLocation(), proposal.toStart());
-        }
+        var routes = new RouteLookup(transport, request, day, venues, warnings);
         try {
             assemble(request, optimize, attractions, weather, venues, schedule, routes, warnings);
         } catch (PlanProblem failure) {
@@ -88,14 +82,16 @@ public class PlannerService {
         while (!pending.isEmpty()) {
             var attraction = optimize ? optimizer.next(pending, schedule, routes, weather) : pending.getFirst();
             pending.remove(attraction);
-            var journey = route(routes, schedule, attraction.coordinates());
+            var destination = Stop.of(attraction);
+            var journey = routes.between(schedule.point(), destination);
             var arrival = afterTravel(schedule, journey);
             var opening = Schedule.firstOpening(arrival, attraction.durationMinutes(), attraction.openingHours());
             if (opening == null || opening.plusMinutes(attraction.durationMinutes()).isAfter(schedule.limit())) {
                 throw PlanProblem.invalid("Atrakcja „" + attraction.name()
                         + "” nie mieści się w harmonogramie. Zmień kolejność, godziny lub wybór atrakcji.");
             }
-            schedule.travel("Dojazd: " + attraction.name(), attraction.coordinates(), journey);
+            routes.reportUnavailable(schedule.point(), destination, journey);
+            schedule.travel("Dojazd: " + attraction.name(), destination, journey);
             schedule.waitUntil(opening);
             schedule.add(attraction.id(), Type.ATTRACTION, attraction.name(), attraction.durationMinutes(),
                     attraction.priceGroszy(), attraction.location(), attraction.coordinates(), null);
@@ -106,44 +102,45 @@ public class PlannerService {
         }
         if (venues != null) {
             warnings.add(venues.isEmpty() ? "Gastronomia — brak propozycji dla wybranego miasta i dnia."
-                    : "Żaden dostępny posiłek nie mieści się w harmonogramie.");
+                    : "Brak lokalu pasującego do harmonogramu i dostępnych połączeń.");
         }
 
         if (request.returnToStart()) {
-            var journey = route(routes, schedule, request.startLocation());
+            var destination = Stop.start(request.startLocation());
+            var journey = routes.between(schedule.point(), destination);
             if (afterTravel(schedule, journey).isAfter(schedule.limit())) {
                 throw PlanProblem.invalid("Powrót do punktu startowego wykracza poza czas planu.");
             }
-            schedule.travel("Powrót do punktu startowego", request.startLocation(), journey);
+            routes.reportUnavailable(schedule.point(), destination, journey);
+            schedule.travel("Powrót do punktu startowego", destination, journey);
         }
     }
 
     private boolean addMeal(Schedule schedule, RouteLookup routes, List<Venue> venues, boolean last, PlanRequest request) {
         for (Venue venue : venues) {
             if (venue.durationMinutes() == null || venue.durationMinutes() <= 0) continue;
-            Journey journey = route(routes, schedule, venue.coordinates());
+            var destination = Stop.of(venue);
+            Journey journey = routes.between(schedule.point(), destination);
+            if (routes.knownNoConnection(schedule.point(), destination, journey)) continue;
             LocalDateTime arrival = afterTravel(schedule, journey);
             var opening = Schedule.firstOpening(arrival, venue.durationMinutes(), venue.openingHours());
             if (opening == null || (!last && opening.isAfter(arrival))) continue;
             var finish = opening.plusMinutes(venue.durationMinutes());
-            if (last && request.returnToStart() && venue.coordinates() != null
-                    && !venue.coordinates().equals(request.startLocation())) {
-                var returnLeg = routes.between(venue.coordinates(), request.startLocation());
+            if (last && request.returnToStart()) {
+                var start = Stop.start(request.startLocation());
+                var returnLeg = routes.between(destination, start);
+                if (routes.knownNoConnection(destination, start, returnLeg)) continue;
                 if (returnLeg != null && returnLeg.minutes() != null) finish = finish.plusMinutes(returnLeg.minutes());
             }
             if (finish.isAfter(schedule.limit())) continue;
-            schedule.travel("Dojazd: " + venue.name(), venue.coordinates(), journey);
+            routes.reportUnavailable(schedule.point(), destination, journey);
+            schedule.travel("Dojazd: " + venue.name(), destination, journey);
             schedule.waitUntil(opening);
             schedule.add(venue.id(), Type.GASTRONOMY, venue.name(), venue.durationMinutes(),
                     venue.priceGroszy(), venue.address(), venue.coordinates(), null);
             return true;
         }
         return false;
-    }
-
-    private static Journey route(RouteLookup routes, Schedule schedule, Place destination) {
-        return Objects.equals(schedule.point(), destination) && destination != null
-                ? null : routes.between(schedule.point(), destination);
     }
 
     private static LocalDateTime afterTravel(Schedule schedule, Journey journey) {
