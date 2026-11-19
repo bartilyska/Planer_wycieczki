@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+const defaultBackend = new URL('/api', window.location.origin)
+defaultBackend.port = '8080'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || defaultBackend.href,
   timeout: 120000,
 })
 

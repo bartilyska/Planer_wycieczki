@@ -11,7 +11,7 @@ const features = [
 ]
 
 export default function Dashboard({ data, form, update, cities, minDate, attractions, selected, selectedIds,
-  toggle, onDetail, useFirstPoint, pointBusy, onGenerate, generating, error, onCreate }) {
+  toggle, onDetail, useFirstPoint, useSuggestedStart, pointBusy, onGenerate, generating, error, onCreate }) {
   return (
     <>
       <section className="hero" aria-labelledby="hero-heading">
@@ -29,10 +29,12 @@ export default function Dashboard({ data, form, update, cities, minDate, attract
         {generating && <LoadingState label="Generowanie harmonogramu" count={1} />}
         <form className="planner-grid" onSubmit={(event) => { event.preventDefault(); onGenerate() }}>
           <div className="planner-main">
-            <PlannerForm {...{ form, update, cities, minDate, useFirstPoint }} options={data.options} canUseFirst={selectedIds.length > 0} busy={pointBusy || generating} />
+            <PlannerForm {...{ form, update, cities, minDate, useFirstPoint, useSuggestedStart }} options={data.options}
+              canUseFirst={selectedIds.length > 0} busy={pointBusy || generating} />
             <AttractionList {...{ toggle, onDetail }} attractions={data.options ? attractions : []}
               loading={data.loading || (!data.options && !data.optionsError)} error={data.error || data.optionsError}
-              retry={data.retry} selected={selectedIds} max={data.options?.maxAttractions ?? 12} />
+              retry={data.retry} selected={selectedIds} max={data.options?.maxAttractions ?? 12}
+              categoryLabels={data.options?.categoryLabels} />
           </div>
           <PlanDraft form={form} selected={selected} onSubmitBusy={generating} generateDisabled={!selectedIds.length || Boolean(data.error) || !data.options} />
         </form>

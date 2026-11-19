@@ -9,7 +9,8 @@ import { errorMessage, generatePlan, getAttraction } from './services/plannerApi
 
 const initialForm = {
   city: '', date: '', startTime: '09:00', endTime: '', lat: '', lng: '',
-  transportMode: 'WALK', includeGastronomy: false, returnToStart: false,
+  transportMode: 'WALK', people: '1', includeGastronomy: false, returnToStart: false,
+  diet: '', mealBudget: '',
 }
 
 function focusSection(id) {
@@ -83,6 +84,15 @@ export default function App() {
     }
   }
 
+  function useSuggestedStart() {
+    const point = data.options?.suggestedStart
+    if (!point || generating) return
+    cancelPointLookup()
+    setError('')
+    setInput((previous) => ({ ...previous, city: previous.city.trim() || 'Warszawa',
+      lat: String(point.lat), lng: String(point.lng) }))
+  }
+
   function edit() {
     if (generating) return
     setPlan(null)
@@ -122,8 +132,10 @@ export default function App() {
     calculate({
       city, date: form.date, startTime: form.startTime, endTime: form.endTime || null,
       startLocation: { lat: Number(form.lat), lng: Number(form.lng) },
-      transportMode: form.transportMode, attractionIds: selectedIds,
+      transportMode: form.transportMode, people: Number(form.people), attractionIds: selectedIds,
       includeGastronomy: form.includeGastronomy, returnToStart: form.returnToStart,
+      diet: form.includeGastronomy ? form.diet || null : null,
+      maxBudgetGrosze: form.includeGastronomy && form.mealBudget !== '' ? Math.round(Number(form.mealBudget) * 100) : null,
     })
   }
 
@@ -150,10 +162,10 @@ export default function App() {
         {plan ? <PlanPage {...{ plan, error }} busy={generating} onEdit={edit} modes={data.options?.transportModes}
           onRegenerate={() => calculate(request)} onOptimize={() => calculate(request, true)}
           onDetail={setDetail} onMove={move} onRemove={remove} />
-          : <Dashboard {...{ data, form, update, cities, minDate, selected, selectedIds, toggle, useFirstPoint, pointBusy, generating, error }}
+          : <Dashboard {...{ data, form, update, cities, minDate, selected, selectedIds, toggle, useFirstPoint, useSuggestedStart, pointBusy, generating, error }}
             attractions={visible} onDetail={setDetail} onCreate={edit} onGenerate={generate} />}
       </main>
-      {detail && <AttractionDetails id={detail} close={() => setDetail(null)} />}
+      {detail && <AttractionDetails id={detail} categoryLabels={data.options?.categoryLabels} close={() => setDetail(null)} />}
       <footer className="shell site-footer"><span>TripPlanner</span><span>Planer jednodniowych wycieczek</span></footer>
     </>
   )
