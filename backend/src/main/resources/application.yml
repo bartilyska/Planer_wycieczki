@@ -1,0 +1,26 @@
+server:
+  port: ${SERVER_PORT:8080}
+spring:
+  application:
+    name: planner-integration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+planner:
+  demo: ${PLANNER_DEMO:false}
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+integration:
+  attractions:
+    base-url: ${ATTRACTIONS_URL:}
+    timeout: ${ATTRACTIONS_TIMEOUT:5000ms}
+  weather:
+    base-url: ${WEATHER_URL:}
+    timeout: ${WEATHER_TIMEOUT:5000ms}
+  transport:
+    base-url: ${TRANSPORT_URL:}
+    timeout: ${TRANSPORT_TIMEOUT:5000ms}
+  gastronomy:
+    base-url: ${GASTRONOMY_URL:}
+    timeout: ${GASTRONOMY_TIMEOUT:5000ms}

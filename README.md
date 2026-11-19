@@ -1,4 +1,34 @@
-# ZADANIE DLA CODEX – IMPLEMENTACJA MODUŁU PLANER I INTEGRACJA
+# TripPlanner — Planer i integracja
+
+Planowanie jednodniowych wycieczek na podstawie katalogu atrakcji i dostępnych danych o pogodzie, przejazdach i gastronomii. Plan jest obliczany na żądanie i przechowywany w pamięci bieżącej strony.
+
+## Moduły
+
+- [Backend](backend/README.md) zawiera instrukcje dla Javy 25 i Mavena, opis REST API i konfigurację integracji.
+- [Frontend](frontend/README.md) zawiera instrukcje dla Reacta i Vite.
+
+## Szybki start w trybie demonstracyjnym
+
+W pierwszym terminalu:
+
+```bash
+cd backend
+PLANNER_DEMO=true mvn spring-boot:run
+```
+
+W drugim terminalu:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Otwórz `http://localhost:5173`. Tryb demo używa katalogu Warszawy i Krakowa oraz oznaczonych danych przykładowych. W trybie integracji ustaw `ATTRACTIONS_URL` i uruchom backend z domyślnym `PLANNER_DEMO=false`. Pozostałe usługi będą dostępne po uzgodnieniu brakujących kontraktów i podłączeniu adapterów.
+
+## Specyfikacja projektu
+
+### Zadanie implementacyjne
 
 ## 1. Cel projektu
 
