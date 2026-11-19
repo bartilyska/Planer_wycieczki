@@ -9,7 +9,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import pl.planner.config.IntegrationProperties;
 import pl.planner.config.PlannerProperties;
-import pl.planner.dto.Attraction;
 import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlannerOptions;
 import pl.planner.dto.PlannerOptions.Mode;
@@ -17,7 +16,6 @@ import pl.planner.dto.PlannerOptions.Status;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.integration.GastronomyClient;
 import pl.planner.integration.TransportClient;
-import pl.planner.integration.WeatherClient;
 
 import static pl.planner.dto.PlanRequest.TransportMode.*;
 
@@ -27,18 +25,16 @@ public class OptionsService {
     private final PlannerProperties planner;
     private final IntegrationProperties integration;
     private final Clock clock;
-    private final ObjectProvider<WeatherClient.ResponseMapper> weather;
     private final ObjectProvider<TransportClient.Contract> transport;
     private final ObjectProvider<GastronomyClient.Contract> gastronomy;
 
     public OptionsService(AttractionCatalog catalog, PlannerProperties planner, IntegrationProperties integration,
-                          Clock clock, ObjectProvider<WeatherClient.ResponseMapper> weather,
-                          ObjectProvider<TransportClient.Contract> transport, ObjectProvider<GastronomyClient.Contract> gastronomy) {
+                          Clock clock, ObjectProvider<TransportClient.Contract> transport,
+                          ObjectProvider<GastronomyClient.Contract> gastronomy) {
         this.catalog = catalog;
         this.planner = planner;
         this.integration = integration;
         this.clock = clock;
-        this.weather = weather;
         this.transport = transport;
         this.gastronomy = gastronomy;
     }
@@ -49,7 +45,7 @@ public class OptionsService {
                 List.of(new Mode(WALK, "Pieszo"), new Mode(BIKE, "Rower"), new Mode(PUBLIC_TRANSPORT, "Komunikacja miejska"),
                         new Mode(CAR, "Samochód")),
                 Map.of("attractions", catalogInfo.status(),
-                        "weather", status(integration.weather(), weather.getIfAvailable() != null),
+                        "weather", status(integration.attractions(), false),
                         "transport", status(integration.transport(), transport.getIfAvailable() != null),
                         "gastronomy", status(integration.gastronomy(), gastronomy.getIfAvailable() != null)),
                 true, true, catalogInfo.warning());

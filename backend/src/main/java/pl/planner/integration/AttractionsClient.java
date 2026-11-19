@@ -1,17 +1,20 @@
 package pl.planner.integration;
 
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import pl.planner.config.IntegrationProperties;
 import pl.planner.dto.Attraction;
+import pl.planner.dto.PlanResponse.Weather;
 import pl.planner.exception.IntegrationFailure;
+import pl.planner.exception.IntegrationFailure.Reason;
 import pl.planner.mapper.AttractionMapper;
 
 @Component
 @ConditionalOnProperty(name = "planner.demo", havingValue = "false", matchIfMissing = true)
-public class AttractionsClient implements PlannerSources.Attractions {
+public class AttractionsClient implements PlannerSources.Attractions, PlannerSources.Forecast {
     private static final ParameterizedTypeReference<List<AttractionPayload>> CATALOG = new ParameterizedTypeReference<>() {};
     private final IntegrationHttp.Endpoint endpoint;
     private final AttractionMapper mapper;
@@ -40,5 +43,11 @@ public class AttractionsClient implements PlannerSources.Attractions {
             throw new IntegrationFailure("Atrakcje", IntegrationFailure.Reason.INVALID_RESPONSE);
         }
         return mapper.map(payload);
+    }
+
+    @Override
+    public Weather day(String city, LocalDate date) {
+        endpoint.requireConfigured();
+        throw new IntegrationFailure("Pogoda z Atrakcji", Reason.CONTRACT_PENDING);
     }
 }

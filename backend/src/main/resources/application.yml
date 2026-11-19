@@ -1,4 +1,5 @@
 server:
+  address: ${SERVER_ADDRESS:0.0.0.0}
   port: ${SERVER_PORT:8080}
 spring:
   application:
@@ -10,17 +11,14 @@ management:
         include: health,info
 planner:
   demo: ${PLANNER_DEMO:false}
-  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173,http://172.20.147.15:5173}
 integration:
   attractions:
-    base-url: ${ATTRACTIONS_URL:}
+    base-url: ${ATTRACTIONS_URL:http://172.20.147.24:8080}
     timeout: ${ATTRACTIONS_TIMEOUT:5000ms}
-  weather:
-    base-url: ${WEATHER_URL:}
-    timeout: ${WEATHER_TIMEOUT:5000ms}
   transport:
-    base-url: ${TRANSPORT_URL:}
+    base-url: ${TRANSPORT_URL:http://172.20.147.17:8080}
     timeout: ${TRANSPORT_TIMEOUT:5000ms}
   gastronomy:
-    base-url: ${GASTRONOMY_URL:}
+    base-url: ${GASTRONOMY_URL:http://172.20.147.27:8080}
     timeout: ${GASTRONOMY_TIMEOUT:5000ms}

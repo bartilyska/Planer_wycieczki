@@ -7,12 +7,11 @@ React, Vite, Axios i Lucide React. Node.js 22.12+ lub 20.19+ z gałęzi 20.
 Z katalogu `frontend`:
 
 ```bash
-cp .env.example .env
 npm install
-npm run dev
+npm run dev -- --host 0.0.0.0
 ```
 
-Otwórz `http://localhost:5173`. Wartość `VITE_API_BASE_URL` wskazuje prefiks naszego backendu, domyślnie `http://localhost:8080/api`. Przy innym adresie frontendu ustaw także `FRONTEND_ORIGIN` w środowisku backendu. Oznaczenie trybu demo pochodzi z backendu.
+Na komputerze planera otwórz `http://localhost:5173`, a z innego komputera w sieci otwórz `http://172.20.147.15:5173`. Domyślnie frontend wywołuje API pod tym samym hostem na porcie `8080`. Gdy frontend i backend działają na różnych komputerach, ustaw `VITE_API_BASE_URL` przez `.env` według `.env.example`. Dopuść również adres frontendu w `FRONTEND_ORIGIN` po stronie backendu. Oznaczenie trybu demo pochodzi z backendu.
 
 ```bash
 npm run build

@@ -28,7 +28,7 @@ class IntegrationClientsTest {
     private final ExchangeFunction network = mock(ExchangeFunction.class);
     private final IntegrationHttp http = new IntegrationHttp(WebClient.builder().exchangeFunction(network));
     private final Service configured = new Service("https://example.test", Duration.ofSeconds(5));
-    private final IntegrationProperties properties = new IntegrationProperties(configured, configured, configured,
+    private final IntegrationProperties properties = new IntegrationProperties(configured, configured,
             new Service("", Duration.ofSeconds(5)));
 
     @Test
@@ -59,20 +59,20 @@ class IntegrationClientsTest {
     void timesOutAndDoesNotContactServicesWithoutConfigurationOrContract() {
         var beans = new StaticListableBeanFactory();
         var day = LocalDate.of(2026, 11, 20);
-        var weather = new WeatherClient(http, properties, beans.getBeanProvider(WeatherClient.ResponseMapper.class));
+        var attractions = new AttractionsClient(http, properties, new AttractionMapper());
         var transport = new TransportClient(http, properties, beans.getBeanProvider(TransportClient.Contract.class));
         var gastronomy = new GastronomyClient(http, properties, beans.getBeanProvider(GastronomyClient.Contract.class));
         var start = new Place(52.22, 21.01);
         var end = new Place(52.23, 21.02);
 
-        assertEquals(Reason.CONTRACT_PENDING, assertThrows(IntegrationFailure.class, () -> weather.day("Warszawa", day)).reason());
+        assertEquals(Reason.CONTRACT_PENDING, assertThrows(IntegrationFailure.class, () -> attractions.day("Warszawa", day)).reason());
         assertEquals(Reason.CONTRACT_PENDING, assertThrows(IntegrationFailure.class, () -> transport.leg(start, end, TransportMode.CAR)).reason());
         assertEquals(Reason.NOT_CONFIGURED, assertThrows(IntegrationFailure.class, () -> gastronomy.venues("Warszawa", day)).reason());
         verifyNoInteractions(network);
 
         when(network.exchange(any())).thenReturn(Mono.never());
         var shortTimeout = new Service("https://example.test", Duration.ofMillis(25));
-        var client = new AttractionsClient(http, new IntegrationProperties(shortTimeout, configured, configured, configured),
+        var client = new AttractionsClient(http, new IntegrationProperties(shortTimeout, configured, configured),
                 new AttractionMapper());
         assertEquals(Reason.TIMEOUT, assertThrows(IntegrationFailure.class, client::list).reason());
     }

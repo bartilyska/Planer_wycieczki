@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -17,7 +18,7 @@ public class WebConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**").allowedOrigins(properties.frontendOrigin())
+        registry.addMapping("/api/**").allowedOrigins(StringUtils.tokenizeToStringArray(properties.frontendOrigin(), ","))
                 .allowedMethods("GET", "POST", "OPTIONS");
     }
 

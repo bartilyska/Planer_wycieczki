@@ -7,13 +7,13 @@ Planowanie jednodniowych wycieczek na podstawie katalogu atrakcji i dostępnych 
 - [Backend](backend/README.md) zawiera instrukcje dla Javy 25 i Mavena, opis REST API i konfigurację integracji.
 - [Frontend](frontend/README.md) zawiera instrukcje dla Reacta i Vite.
 
-## Szybki start w trybie demonstracyjnym
+## Szybki start w sieci lokalnej
 
 W pierwszym terminalu:
 
 ```bash
 cd backend
-PLANNER_DEMO=true mvn spring-boot:run
+mvn spring-boot:run
 ```
 
 W drugim terminalu:
@@ -21,12 +21,14 @@ W drugim terminalu:
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host 0.0.0.0
 ```
 
-Otwórz `http://localhost:5173`. Tryb demo używa katalogu Warszawy i Krakowa oraz oznaczonych danych przykładowych. W trybie integracji ustaw `ATTRACTIONS_URL` i uruchom backend z domyślnym `PLANNER_DEMO=false`. Pozostałe usługi będą dostępne po uzgodnieniu brakujących kontraktów i podłączeniu adapterów.
+Jeśli uruchamiasz oba moduły na komputerze planera, otwórz `http://172.20.147.15:5173`. API planera jest dostępne na porcie `8080`. Adresy Atrakcji, Transportu i Gastronomii zapisano w [konfiguracji backendu](backend/src/main/resources/application.yml). Prognoza będzie pochodzić z Atrakcji po uzgodnieniu formatu danych. Transport i Gastronomia oczekują na kontrakty i adaptery. Do wypróbowania danych przykładowych uruchom backend z `PLANNER_DEMO=true`.
 
 ## Specyfikacja projektu
+
+Poniżej znajduje się pierwotna specyfikacja. Aktualną konfigurację adresów i źródło pogody opisuje [dokumentacja backendu](backend/README.md).
 
 ### Zadanie implementacyjne
 

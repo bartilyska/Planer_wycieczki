@@ -7,10 +7,10 @@ Java 25, Spring Boot 4.1.2 i Maven 3.6.3 lub nowszy. Backend udostępnia REST pr
 Z katalogu `backend`:
 
 ```bash
-PLANNER_DEMO=true mvn spring-boot:run
+mvn spring-boot:run
 ```
 
-Bez flagi `PLANNER_DEMO` aplikacja działa w trybie integracji. W tym trybie ustaw `ATTRACTIONS_URL` na bazowy adres zespołu Atrakcji, np. przez środowisko procesu. Jeśli adres jest pusty, endpointy wymagające katalogu zwrócą HTTP 503. Sprawdzenie procesu jest dostępne pod adresem `http://localhost:8080/actuator/health`.
+Tryb integracji korzysta z adresów zapisanych w `application.yml`. Przyjęto port `8080` dla wszystkich usług, ponieważ przekazano same adresy IP. Jeśli zespół używa innego portu, nadpisz pełny adres właściwą zmienną środowiskową. Na komputerze planera sprawdzenie procesu jest dostępne pod adresem `http://localhost:8080/actuator/health`, a w sieci lokalnej pod `http://172.20.147.15:8080/actuator/health`. Do uruchomienia z danymi przykładowymi ustaw `PLANNER_DEMO=true`.
 
 ```bash
 mvn clean package
@@ -25,12 +25,12 @@ java -jar target/planner-integration-0.1.0-SNAPSHOT.jar
 | --- | --- |
 | `PLANNER_DEMO` | `false`. Wartość `true` przełącza wszystkie źródła na jawne dane demonstracyjne. |
 | `SERVER_PORT` | `8080` |
-| `FRONTEND_ORIGIN` | `http://localhost:5173`. Origin dopuszczony przez CORS. |
-| `ATTRACTIONS_URL` | Pusty. Bazowy adres katalogu atrakcji. |
-| `WEATHER_URL` | Pusty. Bazowy adres usługi prognozy. |
-| `TRANSPORT_URL` | Pusty. Bazowy adres usługi przejazdów. |
-| `GASTRONOMY_URL` | Pusty. Bazowy adres usługi gastronomicznej. |
-| `ATTRACTIONS_TIMEOUT`, `WEATHER_TIMEOUT`, `TRANSPORT_TIMEOUT`, `GASTRONOMY_TIMEOUT` | `5000ms` każda. Timeout pojedynczego wywołania zewnętrznego, łącznie z odczytem odpowiedzi. |
+| `SERVER_ADDRESS` | `0.0.0.0`. Adres nasłuchu backendu. |
+| `FRONTEND_ORIGIN` | `http://localhost:5173,http://172.20.147.15:5173`. Adresy frontendu dopuszczone przez CORS, oddzielone przecinkami. |
+| `ATTRACTIONS_URL` | `http://172.20.147.24:8080` |
+| `TRANSPORT_URL` | `http://172.20.147.17:8080` |
+| `GASTRONOMY_URL` | `http://172.20.147.27:8080` |
+| `ATTRACTIONS_TIMEOUT`, `TRANSPORT_TIMEOUT`, `GASTRONOMY_TIMEOUT` | `5000ms` każda. Timeout pojedynczego wywołania zewnętrznego, łącznie z odczytem odpowiedzi. |
 
 ## REST API
 
@@ -70,7 +70,7 @@ Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `e
 | Usługa | Status i punkt rozszerzenia |
 | --- | --- |
 | Atrakcje | Klient HTTP pobiera `/attractions/proposal` i `/attractions/proposal/{id}`. Własne DTO powstaje z `AttractionPayload` przez `AttractionMapper`. Koordynaty są czytane z odpowiedzi szczegółów. Jeśli zespół wydzieli je do osobnego endpointu, klient wymaga uzupełnienia po ustaleniu jego kontraktu. |
-| Pogoda | Przygotowano żądanie `GET /api/weather/day?city=…&date=…`. Po uzgodnieniu odpowiedzi należy dostarczyć komponent `WeatherClient.ResponseMapper`, który zwraca `PlanResponse.Weather`. |
+| Pogoda | Źródłem prognozy są Atrakcje. Mapowanie w `AttractionsClient` oczekuje na format danych, jaki serwis Atrakcji udostępni dla wybranego dnia. Do tego czasu planer oznacza prognozę jako niedostępną. |
 | Transport | Po uzgodnieniu protokołu należy dostarczyć komponent `TransportClient.Contract`. Adapter otrzymuje klienta z dedykowaną konfiguracją HTTP i mapuje odpowiedź do `PlannerSources.Journey`, opcjonalnie z geometrią trasy. |
 | Gastronomia | Po uzgodnieniu protokołu należy dostarczyć komponent `GastronomyClient.Contract`. Adapter mapuje dane na `PlannerSources.Venue` i dostępne godziny otwarcia. |
 
