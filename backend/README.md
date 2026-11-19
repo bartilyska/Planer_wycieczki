@@ -83,14 +83,14 @@ Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `e
 | --- | --- |
 | Atrakcje | Klient HTTP korzysta z `/api/v1/attractions`, `/api/v1/attractions/{id}`, `/api/v1/categories` i `/api/v1/attractions/proposals`. Plan przyjmuje wyłącznie pozycje dostępne w propozycjach dla wskazanego dnia, startu i środka transportu. |
 | Pogoda | Planer mapuje pole `weather` z dziennych propozycji Atrakcji. |
-| Transport | `POST /api/v1/routes` podaje czas i koszt odcinków `start` ↔ punkt. Planer może połączyć dwa potwierdzone odcinki przez start i oznacza to w harmonogramie. Transport nie zwraca dystansu ani geometrii. |
-| Gastronomia | `GET /api/gastronomy/proposals` dostarcza posiłki i dojazd z atrakcji poprzedzającej przerwę. Planer przekazuje identyfikator tej atrakcji, środek transportu oraz opcjonalne dietę i budżet. Dalsze przejazdy z lokalu planer wylicza z Transportu. |
+| Transport | `POST /api/v1/routes` podaje czas i koszt dla dowolnej pary. Planer preferuje odcinek bezpośredni. Jeśli go brakuje, może połączyć dwa potwierdzone odcinki przez `start` i oznacza to w harmonogramie. Transport nie zwraca dystansu ani geometrii. |
+| Gastronomia | `GET /api/gastronomy/proposals` dostarcza posiłki i wycenę dojazdu z atrakcji poprzedzającej przerwę. Planer przekazuje identyfikator atrakcji, środek transportu i opcjonalną dietę. Budżet sprawdza sam według wybranego dojazdu, dzięki czemu wycena przez `start` nie odrzuci tańszego połączenia bezpośredniego. |
 
 Po wdrożeniu adaptera we właściwym komponencie i ustawieniu adresu serwisu frontend korzysta z tych samych endpointów planera. Stan `CONFIGURED` sygnalizuje skonfigurowanie adresu i dostępność kodu adaptera. Wynik wywołania konkretnej usługi pojawia się w odpowiedzi katalogu lub w ostrzeżeniach planu.
 
-Planer przekazuje do Transportu `location.id` otrzymane z Atrakcji oraz `locationId` zwrócone przez Gastronomię. Jeśli zespoły używają różnych ID, wpisz w `TRANSPORT_LOCATION_ID_MAP` potwierdzone pary, np. `id-w-atrakcjach=ID_W_TRANSPORCIE`. Odpowiedź `NO_CONNECTION` oznacza brak odcinka dla wskazanej pary i trybu. Przy awarii lub timeoutie Planer zgłasza ostrzeżenie i wykorzystuje dostępne czasy oraz koszty z propozycji Atrakcji.
+Planer przekazuje do Transportu `location.id` otrzymane z Atrakcji oraz `locationId` zwrócone przez Gastronomię. Jeśli zespoły używają różnych ID, wpisz w `TRANSPORT_LOCATION_ID_MAP` potwierdzone pary, np. `id-w-atrakcjach=ID_W_TRANSPORCIE`. Wynik dla pary obowiązuje w obie strony. `NO_CONNECTION` oznacza brak odcinka dla wskazanej pary i trybu. Przy awarii lub timeoutie planer zgłasza ostrzeżenie i może wykorzystać dostępne wyceny z propozycji Atrakcji lub Gastronomii.
 
-Pusta lista z Gastronomii skutkuje informacją o braku dopasowanego posiłku. Gdy Gastronomia zgłosi `TRANSPORT_UNAVAILABLE`, planer pomija przerwę i podaje orientacyjny czas ponowienia z nagłówka `Retry-After`, jeśli jest dostępny w sekundach. Propozycja z `transportFromCache: true` jest uwzględniana z ostrzeżeniem, że dojazd opiera się na ostatnich znanych danych.
+Pusta lista z Gastronomii skutkuje informacją o braku dopasowanego posiłku. Gdy Gastronomia zgłosi `TRANSPORT_UNAVAILABLE`, planer pomija przerwę i podaje orientacyjny czas ponowienia z nagłówka `Retry-After`, jeśli jest dostępny w sekundach. Jeśli planer użyje dojazdu oznaczonego `transportFromCache: true`, harmonogram pokazuje ostrzeżenie o ostatnich znanych danych.
 
 ### Discovery
 

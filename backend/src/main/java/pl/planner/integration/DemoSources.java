@@ -18,6 +18,7 @@ import pl.planner.integration.PlannerSources.Category;
 import pl.planner.integration.PlannerSources.DayData;
 import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.integration.PlannerSources.LocationPair;
 import pl.planner.integration.PlannerSources.MealProposal;
 
 @Component
@@ -60,7 +61,18 @@ public class DemoSources implements PlannerSources.Attractions,
     }
 
     @Override
-    public Map<String, Journey> fromStart(Place start, Map<String, Place> destinations, TransportMode mode, int people) {
+    public Map<LocationPair, Journey> routes(Map<String, Place> locations, List<LocationPair> pairs,
+                                             TransportMode mode, int people) {
+        var journeys = new HashMap<LocationPair, Journey>();
+        for (var pair : pairs) {
+            var from = locations.get(pair.from());
+            var to = locations.get(pair.to());
+            if (from != null && to != null) journeys.put(pair, demoJourney(from, to, mode, people));
+        }
+        return journeys;
+    }
+
+    private Journey demoJourney(Place from, Place to, TransportMode mode, int people) {
         double speed = switch (mode) {
             case WALK -> 4.5;
             case BIKE -> 14;
@@ -68,34 +80,20 @@ public class DemoSources implements PlannerSources.Attractions,
             case CAR -> 24;
         };
         long cost = mode == TransportMode.PUBLIC_TRANSPORT ? 440L * people : 0L;
-        var journeys = new HashMap<String, Journey>();
-        destinations.forEach((id, point) -> {
-            if (point != null) {
-                double distance = start.distanceTo(point) * 1.25;
-                journeys.put(id, new Journey((int) Math.ceil(distance / speed * 60),
-                        BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP), cost, mode.name(), List.of()));
-            }
-        });
-        return journeys;
+        double distance = from.distanceTo(to) * 1.25;
+        return new Journey((int) Math.ceil(distance / speed * 60),
+                BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP), cost, mode.name(), List.of());
     }
 
     @Override
     public List<MealProposal> proposals(String fromLocationId, PlanRequest request) {
         String locationId = "demo-lunch";
         Place point = request.city().equalsIgnoreCase("Kraków") ? new Place(50.0580, 19.9373) : new Place(52.2330, 21.0199);
-        boolean viaStart = !PlannerSources.Transport.START.equals(fromLocationId);
-        var start = request.startLocation();
-        var mode = request.transportMode();
-        var outward = fromStart(start, Map.of(locationId, point), mode, 1).get(locationId);
-        var first = viaStart ? fromStart(start, Map.of(fromLocationId, detail(fromLocationId).coordinates()), mode, 1).get(fromLocationId)
-                : new Journey(0, BigDecimal.ZERO, 0L, mode.name(), List.of());
-        long travelCost = first.priceGroszy() + outward.priceGroszy();
-        long mealCost = 3900L;
-        if (request.maxBudgetGrosze() != null && mealCost + travelCost > request.maxBudgetGrosze()) return List.of();
-        var inbound = new Journey(first.minutes() + outward.minutes(), first.distanceKm().add(outward.distanceKm()),
-                travelCost * request.groupSize(), mode.name(), List.of(), viaStart);
+        var from = PlannerSources.Transport.START.equals(fromLocationId)
+                ? request.startLocation() : detail(fromLocationId).coordinates();
+        var inbound = demoJourney(from, point, request.transportMode(), request.groupSize());
         return List.of(new MealProposal(locationId, "demo-meal", "Bistro Podróżnika · przykład", "Zupa warzywna",
-                45, mealCost * request.groupSize(), inbound, false, point));
+                45, 3900L * request.groupSize(), inbound, false, point));
     }
 
     private static Attraction attraction(String id, String name, String city, String description, String category,

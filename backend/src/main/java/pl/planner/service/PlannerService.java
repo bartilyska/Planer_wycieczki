@@ -90,7 +90,7 @@ public class PlannerService {
             schedule.waitUntil(opening);
             schedule.add(attraction.id(), Type.ATTRACTION, attraction.name(), attraction.durationMinutes(),
                     attraction.priceGroszy(), attraction.location(), attraction.coordinates(), null);
-            if (meal != null) meal.afterAttraction(schedule, routes, pending.isEmpty());
+            if (meal != null) meal.afterAttraction(schedule, routes, pending, optimize);
         }
 
         if (request.returnToStart()) {

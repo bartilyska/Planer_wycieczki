@@ -23,8 +23,10 @@ public final class PlannerSources {
     public interface Transport {
         String START = "start";
 
-        Map<String, Journey> fromStart(Place start, Map<String, Place> destinations, TransportMode mode, int people);
+        Map<LocationPair, Journey> routes(Map<String, Place> locations, List<LocationPair> pairs, TransportMode mode, int people);
     }
+
+    public record LocationPair(String from, String to) {}
 
     public interface Gastronomy {
         List<MealProposal> proposals(String fromLocationId, PlanRequest request);

@@ -25,6 +25,7 @@ final class PlanOptimizer {
         Integer minutes = journey == null ? null : journey.minutes();
         double travelRank = schedule.point().same(destination) ? 0
                 : minutes != null ? minutes : (point != null && target != null ? point.distanceTo(target) * 4 : 25);
+        if (routes.knownNoConnection(schedule.point(), destination, journey)) travelRank += 1_000;
         var arrival = schedule.time().plusMinutes(minutes == null ? 0 : minutes);
         var opening = Schedule.firstOpening(arrival, attraction.durationMinutes(), attraction.openingHours());
         if (opening == null || opening.plusMinutes(attraction.durationMinutes()).isAfter(schedule.limit())) {

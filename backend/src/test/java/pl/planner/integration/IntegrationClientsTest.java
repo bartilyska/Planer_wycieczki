@@ -4,8 +4,8 @@ import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -28,6 +28,7 @@ import pl.planner.exception.IntegrationFailure;
 import pl.planner.exception.IntegrationFailure.Reason;
 import pl.planner.exception.PlanProblem;
 import pl.planner.mapper.AttractionMapper;
+import pl.planner.integration.PlannerSources.LocationPair;
 import reactor.core.publisher.Mono;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -154,29 +155,26 @@ class IntegrationClientsTest {
             assertEquals("http://172.20.147.17:8083/api/v1/routes", request.url().toString());
             return response(HttpStatus.OK, """
                     {"mode":"PUBLIC_TRANSPORT","results":[
-                      {"fromLocationId":"start","toLocationId":"ATR_001","status":"OK","durationMin":9,"costGrosze":480},
+                      {"fromLocationId":"ATR_001","toLocationId":"rest-01","status":"OK","durationMin":10,"costGrosze":480},
                       {"fromLocationId":"start","toLocationId":"rest-04","status":"NO_CONNECTION"}
                     ]}
                     """);
         });
         var service = new Service("http://172.20.147.17:8083", Duration.ofSeconds(2));
         var transport = new TransportClient(http, new IntegrationProperties(configured, service, configured), "attr-01=ATR_001");
-        var start = new Place(52.22, 21.01);
-        var destinations = new LinkedHashMap<String, Place>();
-        destinations.put("attr-01", new Place(52.23, 21.02));
-        destinations.put("rest-04", new Place(52.24, 21.03));
-
-        var trips = transport.fromStart(start, destinations, TransportMode.PUBLIC_TRANSPORT, 3);
+        var direct = new LocationPair("attr-01", "rest-01");
+        var unavailable = new LocationPair("start", "rest-04");
+        var trips = transport.routes(Map.of(), List.of(direct, unavailable), TransportMode.PUBLIC_TRANSPORT, 3);
 
         assertEquals(1, trips.size());
-        assertEquals(9, trips.get("attr-01").minutes().intValue());
-        assertEquals(1440L, trips.get("attr-01").priceGroszy().longValue());
-        assertNull(trips.get("attr-01").distanceKm());
-        assertFalse(trips.containsKey("rest-04"));
+        assertEquals(10, trips.get(direct).minutes().intValue());
+        assertEquals(1440L, trips.get(direct).priceGroszy().longValue());
+        assertNull(trips.get(direct).distanceKm());
+        assertFalse(trips.containsKey(unavailable));
     }
 
     @Test
-    void usesGastronomyBudgetAndDietAndDistinguishesEmptyFromTransportFailure() {
+    void usesGastronomyDietAndDistinguishesEmptyFromTransportFailure() {
         var service = new Service("http://172.20.147.27:8000", Duration.ofSeconds(3));
         var gastronomy = new GastronomyClient(http, new IntegrationProperties(configured, configured, service));
         var request = new PlanRequest("Warszawa", LocalDate.of(2026, 11, 22), LocalTime.of(9, 0), null,
@@ -186,7 +184,7 @@ class IntegrationClientsTest {
             var sent = call.getArgument(0, ClientRequest.class);
             assertEquals(HttpMethod.GET, sent.method());
             assertEquals("http://172.20.147.27:8000/api/gastronomy/proposals"
-                    + "?fromLocationId=attr-02&mode=PUBLIC_TRANSPORT&diet=VEGETARIAN&maxBudgetGrosze=3600",
+                    + "?fromLocationId=attr-02&mode=PUBLIC_TRANSPORT&diet=VEGETARIAN",
                     sent.url().toString());
             return response(HttpStatus.OK, """
                     {"fromLocationId":"attr-02","mode":"PUBLIC_TRANSPORT","proposals":[

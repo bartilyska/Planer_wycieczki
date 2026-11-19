@@ -14,6 +14,7 @@ import pl.planner.dto.PlanRequest.TransportMode;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.exception.IntegrationFailure.Reason;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.integration.PlannerSources.LocationPair;
 
 @Component
 @ConditionalOnProperty(name = "planner.demo", havingValue = "false", matchIfMissing = true)
@@ -29,13 +30,13 @@ public class TransportClient implements PlannerSources.Transport {
     }
 
     @Override
-    public Map<String, Journey> fromStart(Place start, Map<String, Place> destinations, TransportMode mode, int people) {
-        var ids = destinations.keySet().stream()
-                .filter(id -> !START.equals(id)).toList();
-        var journeys = new HashMap<String, Journey>();
-        for (int offset = 0; offset < ids.size(); offset += MAX_PAIRS) {
-            var batch = ids.subList(offset, Math.min(offset + MAX_PAIRS, ids.size()));
-            var pairs = batch.stream().map(id -> new Pair(START, locationIds.getOrDefault(id, id))).toList();
+    public Map<LocationPair, Journey> routes(Map<String, Place> locations, List<LocationPair> requested,
+                                             TransportMode mode, int people) {
+        var journeys = new HashMap<LocationPair, Journey>();
+        var distinctLocations = requested.stream().filter(pair -> !resolve(pair.from()).equals(resolve(pair.to()))).toList();
+        for (int offset = 0; offset < distinctLocations.size(); offset += MAX_PAIRS) {
+            var batch = distinctLocations.subList(offset, Math.min(offset + MAX_PAIRS, distinctLocations.size()));
+            var pairs = batch.stream().map(pair -> new Pair(resolve(pair.from()), resolve(pair.to()))).toList();
             var response = endpoint.exchange(client -> client.post().uri("/api/v1/routes")
                     .contentType(MediaType.APPLICATION_JSON).bodyValue(new RoutesRequest(mode, pairs))
                     .retrieve().bodyToMono(RoutesResponse.class), false);
@@ -48,6 +49,10 @@ public class TransportClient implements PlannerSources.Transport {
             }
         }
         return Map.copyOf(journeys);
+    }
+
+    private String resolve(String locationId) {
+        return locationIds.getOrDefault(locationId, locationId);
     }
 
     private static Journey map(Result result, Pair pair, TransportMode mode, int people) {
@@ -73,7 +78,8 @@ public class TransportClient implements PlannerSources.Transport {
         var result = new HashMap<String, String>();
         for (String entry : mapping.split(",", -1)) {
             var pair = entry.split("=", -1);
-            if (pair.length != 2 || pair[0].isBlank() || pair[1].isBlank() || START.equals(pair[1].strip())
+            if (pair.length != 2 || pair[0].isBlank() || pair[1].isBlank()
+                    || START.equals(pair[0].strip()) || START.equals(pair[1].strip())
                     || result.putIfAbsent(pair[0].strip(), pair[1].strip()) != null) {
                 throw new IllegalArgumentException("TRANSPORT_LOCATION_ID_MAP wymaga par źródło=cel oddzielonych przecinkami.");
             }

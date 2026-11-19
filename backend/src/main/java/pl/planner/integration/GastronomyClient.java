@@ -32,7 +32,6 @@ public class GastronomyClient implements PlannerSources.Gastronomy {
                         .queryParam("fromLocationId", "{from}")
                         .queryParam("mode", request.transportMode().name())
                         .queryParamIfPresent("diet", Optional.ofNullable(request.diet()))
-                        .queryParamIfPresent("maxBudgetGrosze", Optional.ofNullable(request.maxBudgetGrosze()))
                         .build(fromLocationId))
                 .retrieve()
                 .onStatus(status -> status.value() == 503, GastronomyClient::serviceUnavailable)
