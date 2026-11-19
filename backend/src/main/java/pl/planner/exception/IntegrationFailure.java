@@ -10,7 +10,7 @@ public class IntegrationFailure extends RuntimeException {
     }
 
     public IntegrationFailure(String service, Reason reason, Throwable cause) {
-        super(service + " — " + switch (reason) {
+        this(reason, service + " — " + switch (reason) {
             case NOT_CONFIGURED -> "brak adresu usługi.";
             case CONTRACT_PENDING -> "integracja oczekuje na kontrakt API.";
             case TIMEOUT -> "przekroczono czas oczekiwania.";
@@ -19,6 +19,14 @@ public class IntegrationFailure extends RuntimeException {
             case NO_DATA -> "usługa nie zwróciła danych.";
             case AUTHORIZATION -> "usługa odrzuciła uwierzytelnienie. Sprawdź konfigurację dostępu.";
         }, cause);
+    }
+
+    public static IntegrationFailure unavailable(String detail) {
+        return new IntegrationFailure(Reason.UNAVAILABLE, detail, null);
+    }
+
+    private IntegrationFailure(Reason reason, String detail, Throwable cause) {
+        super(detail, cause);
         this.reason = reason;
     }
 

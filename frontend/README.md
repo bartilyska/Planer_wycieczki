@@ -24,6 +24,8 @@ Podgląd kompilacji Vite korzysta domyślnie z portu 4173. Uruchom wtedy backend
 
 W trybie integracji możesz ustawić punkt startowy przyciskiem „Użyj punktu startowego w Warszawie” albo podać własne współrzędne w obszarze obsługiwanym przez Atrakcje. Wybierz datę, sposób dojazdu, liczbę osób i atrakcje z katalogu. Podczas generowania backend sprawdza dostępność pozycji w propozycjach dla wybranych parametrów. W widoku harmonogramu możesz zmienić kolejność lub usunąć atrakcję. Mapa pokazuje punkty, a przebieg trasy pojawia się, gdy odpowiedź planera zawiera geometrię przejazdu.
 
+Po włączeniu przerwy na posiłek możesz wybrać dietę i ustawić maksymalną kwotę na posiłek wraz z dojazdem dla jednej osoby. Harmonogram pokazuje osobno dojazd do lokalu i wybrany posiłek.
+
 ## Ilustracja ekranu startowego
 
 Plik `public/warsaw-old-town.webp` powstał przy użyciu wbudowanego ImageGen. Prompt wykorzystany do wygenerowania ilustracji:

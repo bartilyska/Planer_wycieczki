@@ -3,14 +3,12 @@ package pl.planner.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import pl.planner.config.PlannerProperties;
 import pl.planner.dto.Attraction;
@@ -18,13 +16,11 @@ import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanResponse;
 import pl.planner.dto.PlanResponse.Type;
 import pl.planner.dto.PlanResponse.Weather;
-import pl.planner.exception.IntegrationFailure;
 import pl.planner.exception.PlanProblem;
 import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Gastronomy;
 import pl.planner.integration.PlannerSources.Journey;
 import pl.planner.integration.PlannerSources.Transport;
-import pl.planner.integration.PlannerSources.Venue;
 import pl.planner.service.RouteLookup.Stop;
 
 @Service
@@ -60,24 +56,23 @@ public class PlannerService {
         Set<String> warnings = new LinkedHashSet<>();
         Weather weather = day.weather();
         if (!weather.available()) warnings.add("Pogoda — Atrakcje nie udostępniły prognozy dla wybranego dnia.");
-        List<Venue> venues = request.includeGastronomy()
-                ? optional(() -> gastronomy.venues(city, request.date()), null, warnings) : null;
-
+        var meal = request.includeGastronomy() ? new MealBreak(gastronomy, request, warnings) : null;
         var schedule = new Schedule(request);
-        var routes = new RouteLookup(transport, request, day, venues, warnings);
+        var routes = new RouteLookup(transport, request, day, warnings);
         try {
-            assemble(request, optimize, attractions, weather, venues, schedule, routes, warnings);
+            assemble(request, optimize, attractions, weather, meal, schedule, routes);
+            if (meal != null) meal.finish();
         } catch (PlanProblem failure) {
             if (schedule.items().stream().noneMatch(item -> item.type() == Type.GASTRONOMY)) throw failure;
             schedule = new Schedule(request);
-            assemble(request, optimize, attractions, weather, null, schedule, routes, warnings);
+            assemble(request, optimize, attractions, weather, null, schedule, routes);
             warnings.add("Przerwa na posiłek nie mieści się obok wybranych atrakcji.");
         }
         return response(request, city, weather, schedule, warnings);
     }
 
     private void assemble(PlanRequest request, boolean optimize, List<Attraction> attractions, Weather weather,
-                          List<Venue> venues, Schedule schedule, RouteLookup routes, Set<String> warnings) {
+                          MealBreak meal, Schedule schedule, RouteLookup routes) {
         var pending = new ArrayList<>(attractions);
         while (!pending.isEmpty()) {
             var attraction = optimize ? optimizer.next(pending, schedule, routes, weather) : pending.getFirst();
@@ -95,14 +90,7 @@ public class PlannerService {
             schedule.waitUntil(opening);
             schedule.add(attraction.id(), Type.ATTRACTION, attraction.name(), attraction.durationMinutes(),
                     attraction.priceGroszy(), attraction.location(), attraction.coordinates(), null);
-            if (venues != null && (!schedule.time().toLocalTime().isBefore(LocalTime.NOON) || pending.isEmpty())
-                    && addMeal(schedule, routes, venues, pending.isEmpty(), request)) {
-                venues = null;
-            }
-        }
-        if (venues != null) {
-            warnings.add(venues.isEmpty() ? "Gastronomia — brak propozycji dla wybranego miasta i dnia."
-                    : "Brak lokalu pasującego do harmonogramu i dostępnych połączeń.");
+            if (meal != null) meal.afterAttraction(schedule, routes, pending.isEmpty());
         }
 
         if (request.returnToStart()) {
@@ -114,33 +102,6 @@ public class PlannerService {
             routes.reportUnavailable(schedule.point(), destination, journey);
             schedule.travel("Powrót do punktu startowego", destination, journey);
         }
-    }
-
-    private boolean addMeal(Schedule schedule, RouteLookup routes, List<Venue> venues, boolean last, PlanRequest request) {
-        for (Venue venue : venues) {
-            if (venue.durationMinutes() == null || venue.durationMinutes() <= 0) continue;
-            var destination = Stop.of(venue);
-            Journey journey = routes.between(schedule.point(), destination);
-            if (routes.knownNoConnection(schedule.point(), destination, journey)) continue;
-            LocalDateTime arrival = afterTravel(schedule, journey);
-            var opening = Schedule.firstOpening(arrival, venue.durationMinutes(), venue.openingHours());
-            if (opening == null || (!last && opening.isAfter(arrival))) continue;
-            var finish = opening.plusMinutes(venue.durationMinutes());
-            if (last && request.returnToStart()) {
-                var start = Stop.start(request.startLocation());
-                var returnLeg = routes.between(destination, start);
-                if (routes.knownNoConnection(destination, start, returnLeg)) continue;
-                if (returnLeg != null && returnLeg.minutes() != null) finish = finish.plusMinutes(returnLeg.minutes());
-            }
-            if (finish.isAfter(schedule.limit())) continue;
-            routes.reportUnavailable(schedule.point(), destination, journey);
-            schedule.travel("Dojazd: " + venue.name(), destination, journey);
-            schedule.waitUntil(opening);
-            schedule.add(venue.id(), Type.GASTRONOMY, venue.name(), venue.durationMinutes(),
-                    venue.priceGroszy(), venue.address(), venue.coordinates(), null);
-            return true;
-        }
-        return false;
     }
 
     private static LocalDateTime afterTravel(Schedule schedule, Journey journey) {
@@ -174,12 +135,4 @@ public class PlannerService {
         }
     }
 
-    private static <T> T optional(Supplier<T> action, T fallback, Set<String> warnings) {
-        try {
-            return action.get();
-        } catch (IntegrationFailure failure) {
-            warnings.add(failure.getMessage());
-            return fallback;
-        }
-    }
 }

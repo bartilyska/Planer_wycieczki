@@ -25,8 +25,8 @@ import pl.planner.integration.PlannerSources.DayData;
 import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Gastronomy;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.integration.PlannerSources.MealProposal;
 import pl.planner.integration.PlannerSources.Transport;
-import pl.planner.integration.PlannerSources.Venue;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -49,22 +49,31 @@ class PlannerServiceTest {
         var leg = new Journey(10, BigDecimal.ONE, 200L, "CAR", List.of());
         var proposalLeg = new Journey(50, null, 9999L, "CAR", List.of());
         setAttractions(proposalLeg, proposalLeg);
-        when(transport.fromStart(eq(START), anyMap(), eq(TransportMode.CAR), eq(1)))
+        when(transport.fromStart(START, Map.of("attr-park", PARK, "attr-museum", MUSEUM), TransportMode.CAR, 1))
                 .thenReturn(Map.of("attr-park", leg, "attr-museum", leg));
-        when(gastronomy.venues("Warszawa", DATE))
-                .thenReturn(List.of(new Venue("lunch", "Bistro", "Centrum", MUSEUM, "bistro", 3000L, 40, List.of(), "attr-museum")));
+        var restaurant = new Place(52.25, 21.03);
+        when(transport.fromStart(START, Map.of("rest-01", restaurant), TransportMode.CAR, 1))
+                .thenReturn(Map.of("rest-01", leg));
+        var inbound = new Journey(19, null, 350L, "CAR", List.of(), true);
+        when(gastronomy.proposals(eq("attr-museum"), any()))
+                .thenReturn(List.of(new MealProposal("rest-01", "meal-01", "Bistro", "Zupa", 40, 3000L, inbound, true, restaurant)));
 
         var plan = planner.plan(request(true, true), false);
 
-        assertEquals(List.of(Type.TRANSPORT, Type.ATTRACTION, Type.TRANSPORT, Type.ATTRACTION, Type.GASTRONOMY, Type.TRANSPORT),
+        assertEquals(List.of(Type.TRANSPORT, Type.ATTRACTION, Type.TRANSPORT, Type.ATTRACTION, Type.TRANSPORT,
+                        Type.GASTRONOMY, Type.TRANSPORT),
                 plan.items().stream().map(Item::type).toList());
         assertEquals("park", plan.items().get(1).id());
         assertTrue(plan.items().get(2).name().contains("przez punkt startowy"));
-        assertEquals(140, plan.totalDurationMinutes());
-        assertEquals(5800L, plan.totalCostGroszy());
-        assertEquals(LocalTime.of(13, 20), plan.items().getLast().endTime());
-        assertTrue(plan.warnings().isEmpty());
+        assertEquals(19, plan.items().get(4).durationMinutes().intValue());
+        assertEquals("Zupa · Bistro", plan.items().get(5).name());
+        assertEquals(159, plan.totalDurationMinutes());
+        assertEquals(6150L, plan.totalCostGroszy());
+        assertEquals(LocalTime.of(13, 39), plan.items().getLast().endTime());
+        assertTrue(plan.warnings().stream().anyMatch(warning -> warning.contains("ostatnich znanych")));
         verify(transport).fromStart(START, Map.of("attr-park", PARK, "attr-museum", MUSEUM), TransportMode.CAR, 1);
+        verify(transport).fromStart(START, Map.of("rest-01", restaurant), TransportMode.CAR, 1);
+        verify(gastronomy).proposals(eq("attr-museum"), any());
         verifyNoMoreInteractions(transport);
     }
 
@@ -73,8 +82,8 @@ class PlannerServiceTest {
         setAttractions(null, null);
         when(transport.fromStart(any(), anyMap(), any(), anyInt()))
                 .thenThrow(new IntegrationFailure("Transport", Reason.TIMEOUT));
-        when(gastronomy.venues("Warszawa", DATE))
-                .thenThrow(new IntegrationFailure("Gastronomia", Reason.CONTRACT_PENDING));
+        when(gastronomy.proposals(anyString(), any()))
+                .thenThrow(new IntegrationFailure("Gastronomia", Reason.TIMEOUT));
 
         var plan = planner.plan(request(true, false), true);
 
@@ -113,6 +122,6 @@ class PlannerServiceTest {
 
     private PlanRequest request(boolean meal, boolean roundTrip) {
         return new PlanRequest("Warszawa", DATE, LocalTime.of(11, 0), LocalTime.of(18, 0), START,
-                List.of("park", "museum"), meal, TransportMode.CAR, roundTrip, 1);
+                List.of("park", "museum"), meal, TransportMode.CAR, roundTrip, 1, null, null);
     }
 }

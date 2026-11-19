@@ -25,5 +25,5 @@ integration:
     timeout: ${TRANSPORT_TIMEOUT:2s}
     location-id-map: ${TRANSPORT_LOCATION_ID_MAP:}
   gastronomy:
-    base-url: ${GASTRONOMY_URL:http://172.20.147.27:8080}
-    timeout: ${GASTRONOMY_TIMEOUT:5000ms}
+    base-url: ${GASTRONOMY_URL:http://172.20.147.27:8000}
+    timeout: ${GASTRONOMY_TIMEOUT:3s}

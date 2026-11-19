@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import pl.planner.config.IntegrationProperties;
 import pl.planner.config.PlannerProperties;
@@ -15,7 +14,6 @@ import pl.planner.dto.PlannerOptions;
 import pl.planner.dto.PlannerOptions.Mode;
 import pl.planner.dto.PlannerOptions.Status;
 import pl.planner.exception.IntegrationFailure;
-import pl.planner.integration.GastronomyClient;
 
 import static pl.planner.dto.PlanRequest.TransportMode.*;
 
@@ -25,16 +23,13 @@ public class OptionsService {
     private final PlannerProperties planner;
     private final IntegrationProperties integration;
     private final Clock clock;
-    private final ObjectProvider<GastronomyClient.Contract> gastronomy;
 
     public OptionsService(AttractionCatalog catalog, PlannerProperties planner, IntegrationProperties integration,
-                          Clock clock,
-                          ObjectProvider<GastronomyClient.Contract> gastronomy) {
+                          Clock clock) {
         this.catalog = catalog;
         this.planner = planner;
         this.integration = integration;
         this.clock = clock;
-        this.gastronomy = gastronomy;
     }
 
     public PlannerOptions options() {
@@ -46,8 +41,8 @@ public class OptionsService {
                 List.copyOf(catalogInfo.categories().keySet()), modes,
                 Map.of("attractions", catalogInfo.status(),
                         "weather", catalogInfo.status(),
-                        "transport", status(integration.transport(), true),
-                        "gastronomy", status(integration.gastronomy(), gastronomy.getIfAvailable() != null)),
+                        "transport", status(integration.transport()),
+                        "gastronomy", status(integration.gastronomy())),
                 true, true, catalogInfo.warning(), catalogInfo.categories(),
                 planner.demo() ? null : new Place(52.2297, 21.0122));
     }
@@ -56,7 +51,7 @@ public class OptionsService {
         try {
             var categories = new LinkedHashMap<String, String>();
             catalog.categories().forEach(category -> categories.putIfAbsent(category.code(), category.name()));
-            return new CatalogOptions(categories, status(integration.attractions(), true), null);
+            return new CatalogOptions(categories, status(integration.attractions()), null);
         } catch (IntegrationFailure unavailable) {
             Status status = unavailable.reason() == IntegrationFailure.Reason.NOT_CONFIGURED
                     ? Status.NOT_CONFIGURED : Status.UNAVAILABLE;
@@ -64,10 +59,9 @@ public class OptionsService {
         }
     }
 
-    private Status status(IntegrationProperties.Service service, boolean contractReady) {
+    private Status status(IntegrationProperties.Service service) {
         if (planner.demo()) return Status.DEMO;
-        if (!service.configured()) return Status.NOT_CONFIGURED;
-        return contractReady ? Status.CONFIGURED : Status.CONTRACT_PENDING;
+        return service.configured() ? Status.CONFIGURED : Status.NOT_CONFIGURED;
     }
 
     private record CatalogOptions(Map<String, String> categories, Status status, String warning) {}

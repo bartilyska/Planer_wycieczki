@@ -2,15 +2,12 @@ package pl.planner.integration;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import pl.planner.dto.Attraction;
-import pl.planner.dto.Attraction.OpeningWindow;
 import pl.planner.dto.Place;
 import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanRequest.TransportMode;
@@ -21,7 +18,7 @@ import pl.planner.integration.PlannerSources.Category;
 import pl.planner.integration.PlannerSources.DayData;
 import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Journey;
-import pl.planner.integration.PlannerSources.Venue;
+import pl.planner.integration.PlannerSources.MealProposal;
 
 @Component
 @ConditionalOnProperty(name = "planner.demo", havingValue = "true")
@@ -83,10 +80,22 @@ public class DemoSources implements PlannerSources.Attractions,
     }
 
     @Override
-    public List<Venue> venues(String city, LocalDate date) {
-        Place point = city.equalsIgnoreCase("Kraków") ? new Place(50.0580, 19.9373) : new Place(52.2330, 21.0199);
-        return List.of(new Venue("demo-lunch", "Bistro Podróżnika · przykład", city, point, "Bistro", 3900L, 45,
-                List.of(new OpeningWindow(LocalTime.of(11, 30), LocalTime.of(21, 0))), "demo-lunch"));
+    public List<MealProposal> proposals(String fromLocationId, PlanRequest request) {
+        String locationId = "demo-lunch";
+        Place point = request.city().equalsIgnoreCase("Kraków") ? new Place(50.0580, 19.9373) : new Place(52.2330, 21.0199);
+        boolean viaStart = !PlannerSources.Transport.START.equals(fromLocationId);
+        var start = request.startLocation();
+        var mode = request.transportMode();
+        var outward = fromStart(start, Map.of(locationId, point), mode, 1).get(locationId);
+        var first = viaStart ? fromStart(start, Map.of(fromLocationId, detail(fromLocationId).coordinates()), mode, 1).get(fromLocationId)
+                : new Journey(0, BigDecimal.ZERO, 0L, mode.name(), List.of());
+        long travelCost = first.priceGroszy() + outward.priceGroszy();
+        long mealCost = 3900L;
+        if (request.maxBudgetGrosze() != null && mealCost + travelCost > request.maxBudgetGrosze()) return List.of();
+        var inbound = new Journey(first.minutes() + outward.minutes(), first.distanceKm().add(outward.distanceKm()),
+                travelCost * request.groupSize(), mode.name(), List.of(), viaStart);
+        return List.of(new MealProposal(locationId, "demo-meal", "Bistro Podróżnika · przykład", "Zupa warzywna",
+                45, mealCost * request.groupSize(), inbound, false, point));
     }
 
     private static Attraction attraction(String id, String name, String city, String description, String category,

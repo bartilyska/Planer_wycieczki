@@ -34,10 +34,11 @@ java -jar target/planner-integration-0.1.0-SNAPSHOT.jar
 | `TRANSPORT_URL` | `http://172.20.147.17:8083` |
 | `TRANSPORT_TIMEOUT` | `2s` na zapytanie do Transportu. |
 | `TRANSPORT_LOCATION_ID_MAP` | Pusty. Opcjonalne powiązania `ID_źródłowe=ID_w_Transporcie` oddzielone przecinkami. |
-| `GASTRONOMY_URL` | `http://172.20.147.27:8080` |
+| `GASTRONOMY_URL` | `http://172.20.147.27:8000` |
+| `GASTRONOMY_TIMEOUT` | `3s` na zapytanie do Gastronomii. |
 | `DISCOVERY_ENABLED` | `false`. Włącz po sprawdzeniu integracji pod adresami statycznymi. |
 | `DISCOVERY_URL` | `http://172.20.147.20:8080` |
-| `ATTRACTIONS_TIMEOUT`, `GASTRONOMY_TIMEOUT` | `5000ms` każda. Timeout pojedynczego wywołania zewnętrznego, łącznie z odczytem odpowiedzi. |
+| `ATTRACTIONS_TIMEOUT` | `5000ms` na zapytanie do Atrakcji. |
 
 ## REST API
 
@@ -72,6 +73,8 @@ Plan jest jednodniowy. `endTime` to opcjonalna granica, domyślnie 23:59. Jedno 
 
 Opcjonalne pole `people` przyjmuje wartości od 1 do 20 i domyślnie wynosi 1. Ceny w katalogu dotyczą jednej osoby. Plan używa sumy biletów z propozycji Atrakcji oraz mnoży stawkę Transportu w groszach przez liczbę osób. W trybie integracji środki transportu to `WALK`, `PUBLIC_TRANSPORT` i `CAR`. Atrakcje opisują punkt startowy w pobliżu współrzędnych `52.2297, 21.0122`.
 
+Gdy `includeGastronomy` ma wartość `true`, żądanie może zawierać `diet` (`STANDARD`, `VEGETARIAN`, `VEGAN` albo `GLUTEN_FREE`) i `maxBudgetGrosze`. Budżet jest limitem na jedną osobę i obejmuje posiłek wraz z dojazdem do lokalu. W podsumowaniu oba koszty są przeliczane na całą grupę.
+
 Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `endTime` i `durationMinutes` są puste. Brak ceny lub czasu obniża kompletność sum, co sygnalizują pola `costComplete` i `durationComplete`. Odpowiedź zawiera ostrzeżenia o brakujących integracjach lub danych. Błędy krytyczne przyjmują format Problem Details. HTTP 400 oznacza błędne wejście lub przekroczony przedział harmonogramu, 404 potwierdzony brak atrakcji, 503 problem z obowiązkową integracją, a 500 nieoczekiwany błąd.
 
 ## Integracje
@@ -81,11 +84,13 @@ Jeżeli przejazd ma nieznany czas, następne godziny są orientacyjne, a jego `e
 | Atrakcje | Klient HTTP korzysta z `/api/v1/attractions`, `/api/v1/attractions/{id}`, `/api/v1/categories` i `/api/v1/attractions/proposals`. Plan przyjmuje wyłącznie pozycje dostępne w propozycjach dla wskazanego dnia, startu i środka transportu. |
 | Pogoda | Planer mapuje pole `weather` z dziennych propozycji Atrakcji. |
 | Transport | `POST /api/v1/routes` podaje czas i koszt odcinków `start` ↔ punkt. Planer może połączyć dwa potwierdzone odcinki przez start i oznacza to w harmonogramie. Transport nie zwraca dystansu ani geometrii. |
-| Gastronomia | Po uzgodnieniu protokołu należy dostarczyć komponent `GastronomyClient.Contract`. Adapter mapuje dane na `PlannerSources.Venue` i dostępne godziny otwarcia. |
+| Gastronomia | `GET /api/gastronomy/proposals` dostarcza posiłki i dojazd z atrakcji poprzedzającej przerwę. Planer przekazuje identyfikator tej atrakcji, środek transportu oraz opcjonalne dietę i budżet. Dalsze przejazdy z lokalu planer wylicza z Transportu. |
 
 Po wdrożeniu adaptera we właściwym komponencie i ustawieniu adresu serwisu frontend korzysta z tych samych endpointów planera. Stan `CONFIGURED` sygnalizuje skonfigurowanie adresu i dostępność kodu adaptera. Wynik wywołania konkretnej usługi pojawia się w odpowiedzi katalogu lub w ostrzeżeniach planu.
 
-Planer przekazuje do Transportu `location.id` otrzymane z Atrakcji. Jeśli zespoły używają różnych ID, wpisz w `TRANSPORT_LOCATION_ID_MAP` potwierdzone pary, np. `id-w-atrakcjach=ID_W_TRANSPORCIE`. Lokale będą korzystać z tego mechanizmu, gdy adapter Gastronomii dostarczy ich identyfikatory transportowe. Odpowiedź `NO_CONNECTION` oznacza brak odcinka dla wskazanej pary i trybu. Przy awarii lub timeoutie Planer zgłasza ostrzeżenie i wykorzystuje dostępne czasy oraz koszty z propozycji Atrakcji.
+Planer przekazuje do Transportu `location.id` otrzymane z Atrakcji oraz `locationId` zwrócone przez Gastronomię. Jeśli zespoły używają różnych ID, wpisz w `TRANSPORT_LOCATION_ID_MAP` potwierdzone pary, np. `id-w-atrakcjach=ID_W_TRANSPORCIE`. Odpowiedź `NO_CONNECTION` oznacza brak odcinka dla wskazanej pary i trybu. Przy awarii lub timeoutie Planer zgłasza ostrzeżenie i wykorzystuje dostępne czasy oraz koszty z propozycji Atrakcji.
+
+Pusta lista z Gastronomii skutkuje informacją o braku dopasowanego posiłku. Gdy Gastronomia zgłosi `TRANSPORT_UNAVAILABLE`, planer pomija przerwę i podaje orientacyjny czas ponowienia z nagłówka `Retry-After`, jeśli jest dostępny w sekundach. Propozycja z `transportFromCache: true` jest uwzględniana z ostrzeżeniem, że dojazd opiera się na ostatnich znanych danych.
 
 ### Discovery
 

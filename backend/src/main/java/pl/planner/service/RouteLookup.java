@@ -1,6 +1,7 @@
 package pl.planner.service;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,8 +12,8 @@ import pl.planner.dto.PlanRequest;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.integration.PlannerSources.DayData;
 import pl.planner.integration.PlannerSources.Journey;
+import pl.planner.integration.PlannerSources.MealProposal;
 import pl.planner.integration.PlannerSources.Transport;
-import pl.planner.integration.PlannerSources.Venue;
 
 final class RouteLookup {
     record Stop(String id, Place coordinates) {
@@ -28,8 +29,8 @@ final class RouteLookup {
             return new Stop(attraction.transportLocationId(), attraction.coordinates());
         }
 
-        static Stop of(Venue venue) {
-            return new Stop(venue.transportLocationId(), venue.coordinates());
+        static Stop of(MealProposal meal) {
+            return new Stop(meal.locationId(), meal.coordinates());
         }
 
         boolean same(Stop other) {
@@ -41,22 +42,20 @@ final class RouteLookup {
     private record StartLegs(Journey fromStart, Journey toStart) {}
 
     private final Map<String, StartLegs> legs = new HashMap<>();
+    private final Set<String> queriedIds = new HashSet<>();
+    private final Transport source;
+    private final PlanRequest request;
     private final Set<String> warnings;
     private boolean serviceFailed;
 
-    RouteLookup(Transport source, PlanRequest request, DayData day, List<Venue> venues, Set<String> warnings) {
+    RouteLookup(Transport source, PlanRequest request, DayData day, Set<String> warnings) {
+        this.source = source;
+        this.request = request;
         this.warnings = warnings;
         var destinations = new LinkedHashMap<String, Place>();
         day.proposals().forEach(proposal -> addDestination(destinations, Stop.of(proposal.attraction())));
-        if (venues != null) venues.forEach(venue -> addDestination(destinations, Stop.of(venue)));
-        if (destinations.isEmpty()) return;
-
-        try {
-            source.fromStart(request.startLocation(), destinations, request.transportMode(), request.groupSize())
-                    .forEach((id, journey) -> legs.put(id, new StartLegs(journey, journey)));
-        } catch (IntegrationFailure failure) {
-            serviceFailed = true;
-            warnings.add(failure.getMessage());
+        load(destinations);
+        if (serviceFailed) {
             for (var proposal : day.proposals()) {
                 var id = proposal.attraction().transportLocationId();
                 if (id != null && (proposal.fromStart() != null || proposal.toStart() != null)) {
@@ -65,6 +64,24 @@ final class RouteLookup {
             }
             if (!legs.isEmpty()) warnings.add("Dostępne czasy i koszty przejazdów pochodzą z propozycji Atrakcji.");
             else if (day.travelWarning() != null) warnings.add(day.travelWarning());
+        }
+    }
+
+    void loadMealStops(List<MealProposal> proposals) {
+        var destinations = new LinkedHashMap<String, Place>();
+        proposals.forEach(meal -> addDestination(destinations, Stop.of(meal)));
+        load(destinations);
+    }
+
+    private void load(Map<String, Place> destinations) {
+        if (serviceFailed || destinations.isEmpty()) return;
+        queriedIds.addAll(destinations.keySet());
+        try {
+            source.fromStart(request.startLocation(), destinations, request.transportMode(), request.groupSize())
+                    .forEach((id, journey) -> legs.put(id, new StartLegs(journey, journey)));
+        } catch (IntegrationFailure failure) {
+            serviceFailed = true;
+            warnings.add(failure.getMessage());
         }
     }
 
@@ -105,8 +122,8 @@ final class RouteLookup {
         return entry == null ? null : entry.toStart();
     }
 
-    private static void addDestination(Map<String, Place> destinations, Stop stop) {
-        if (stop.id() != null && !Transport.START.equals(stop.id())) {
+    private void addDestination(Map<String, Place> destinations, Stop stop) {
+        if (stop.id() != null && !Transport.START.equals(stop.id()) && !queriedIds.contains(stop.id())) {
             destinations.putIfAbsent(stop.id(), stop.coordinates());
         }
     }

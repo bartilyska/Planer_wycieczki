@@ -7,7 +7,6 @@ import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -22,6 +21,7 @@ import pl.planner.config.IntegrationProperties.Service;
 import pl.planner.config.PlannerProperties;
 import pl.planner.dto.Place;
 import pl.planner.dto.PlanRequest;
+import pl.planner.dto.PlanRequest.Diet;
 import pl.planner.dto.PlanRequest.TransportMode;
 import pl.planner.dto.PlanResponse.Condition;
 import pl.planner.exception.IntegrationFailure;
@@ -96,7 +96,7 @@ class IntegrationClientsTest {
         });
         var client = new AttractionsClient(http, properties, new AttractionMapper(), "");
         var request = new PlanRequest("Warszawa", LocalDate.of(2026, 11, 22), LocalTime.of(9, 0), null,
-                new Place(52.2297, 21.0122), List.of("ATR01"), false, TransportMode.PUBLIC_TRANSPORT, true, 3);
+                new Place(52.2297, 21.0122), List.of("ATR01"), false, TransportMode.PUBLIC_TRANSPORT, true, 3, null, null);
 
         var day = client.day(request);
         assertEquals(Condition.ADVERSE_OUTDOOR, day.weather().condition());
@@ -176,11 +176,55 @@ class IntegrationClientsTest {
     }
 
     @Test
+    void usesGastronomyBudgetAndDietAndDistinguishesEmptyFromTransportFailure() {
+        var service = new Service("http://172.20.147.27:8000", Duration.ofSeconds(3));
+        var gastronomy = new GastronomyClient(http, new IntegrationProperties(configured, configured, service));
+        var request = new PlanRequest("Warszawa", LocalDate.of(2026, 11, 22), LocalTime.of(9, 0), null,
+                new Place(52.2297, 21.0122), List.of("ATR01"), true, TransportMode.PUBLIC_TRANSPORT, true, 3,
+                Diet.VEGETARIAN, 3600L);
+        when(network.exchange(any())).thenAnswer(call -> {
+            var sent = call.getArgument(0, ClientRequest.class);
+            assertEquals(HttpMethod.GET, sent.method());
+            assertEquals("http://172.20.147.27:8000/api/gastronomy/proposals"
+                    + "?fromLocationId=attr-02&mode=PUBLIC_TRANSPORT&diet=VEGETARIAN&maxBudgetGrosze=3600",
+                    sent.url().toString());
+            return response(HttpStatus.OK, """
+                    {"fromLocationId":"attr-02","mode":"PUBLIC_TRANSPORT","proposals":[
+                       {"placeName":"Bistro Zielone","locationId":"rest-01","mealId":"meal-01","mealName":"Krem z dyni",
+                        "mealCostGrosze":1800,"visitDurationMin":45,"travelDurationMin":19,
+                        "travelCostGrosze":960,"transportFromCache":true}
+                    ]}
+                    """);
+        });
+        var meal = gastronomy.proposals("attr-02", request).getFirst();
+        assertEquals("rest-01", meal.locationId());
+        assertEquals(5400L, meal.priceGroszy());
+        assertEquals(19, meal.inbound().minutes().intValue());
+        assertEquals(2880L, meal.inbound().priceGroszy().longValue());
+        assertTrue(meal.transportFromCache());
+
+        doReturn(response(HttpStatus.OK, """
+                {"fromLocationId":"attr-02","mode":"PUBLIC_TRANSPORT","proposals":[]}
+                """)).when(network).exchange(any());
+        assertTrue(gastronomy.proposals("attr-02", request).isEmpty());
+
+        var unavailable = ClientResponse.create(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.RETRY_AFTER, "60").body("{\"error\":\"TRANSPORT_UNAVAILABLE\"}").build();
+        doReturn(Mono.just(unavailable)).when(network).exchange(any());
+        var failure = assertThrows(IntegrationFailure.class, () -> gastronomy.proposals("attr-02", request));
+        assertEquals(Reason.UNAVAILABLE, failure.reason());
+        assertTrue(failure.getMessage().contains("Transport"));
+        assertTrue(failure.getMessage().contains("60 s"));
+    }
+
+    @Test
     void timesOutAndDoesNotContactServicesWithoutConfigurationOrContract() {
-        var beans = new StaticListableBeanFactory();
-        var day = LocalDate.of(2026, 11, 20);
-        var gastronomy = new GastronomyClient(http, properties, beans.getBeanProvider(GastronomyClient.Contract.class));
-        assertEquals(Reason.NOT_CONFIGURED, assertThrows(IntegrationFailure.class, () -> gastronomy.venues("Warszawa", day)).reason());
+        var gastronomy = new GastronomyClient(http, properties);
+        var request = new PlanRequest("Warszawa", LocalDate.of(2026, 11, 22), LocalTime.of(9, 0), null,
+                new Place(52.2297, 21.0122), List.of("ATR01"), true, TransportMode.WALK, false, 1, null, null);
+        assertEquals(Reason.NOT_CONFIGURED, assertThrows(IntegrationFailure.class,
+                () -> gastronomy.proposals("start", request)).reason());
         verifyNoInteractions(network);
 
         when(network.exchange(any())).thenReturn(Mono.never());

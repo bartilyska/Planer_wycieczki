@@ -34,6 +34,23 @@ export default function PlannerForm({ form, update, cities, options, minDate, us
       </fieldset>
       <div className="switches">
         <label className="switch-row"><Utensils size={19} /><span>Uwzględnij przerwę na posiłek</span><input type="checkbox" checked={form.includeGastronomy} onChange={(event) => update('includeGastronomy', event.target.checked)} /></label>
+        {form.includeGastronomy && <fieldset className="location-fields">
+          <legend>Opcje posiłku</legend>
+          <div className="fields">
+            <label><span>Dieta</span><span className="field-control">
+              <select value={form.diet} onChange={(event) => update('diet', event.target.value)}>
+                <option value="">Wszystkie</option>
+                <option value="VEGETARIAN">Wegetariańska</option>
+                <option value="VEGAN">Wegańska</option>
+                <option value="GLUTEN_FREE">Bezglutenowa</option>
+              </select><ChevronDown className="select-chevron" size={16} />
+            </span></label>
+            <label><span>Budżet na posiłek i dojazd (zł/os.)</span><span className="field-control">
+              <input type="number" min="0" step="0.01" placeholder="Bez limitu" value={form.mealBudget}
+                onChange={(event) => update('mealBudget', event.target.value)} />
+            </span></label>
+          </div>
+        </fieldset>}
         <label className="switch-row"><Route size={19} /><span>Powrót do punktu startowego</span><input type="checkbox" checked={form.returnToStart} onChange={(event) => update('returnToStart', event.target.checked)} /></label>
       </div>
     </section>

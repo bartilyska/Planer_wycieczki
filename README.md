@@ -24,7 +24,7 @@ npm install
 npm run dev -- --host 0.0.0.0
 ```
 
-Jeśli uruchamiasz oba moduły na komputerze planera wskazanym w rejestrze, otwórz `http://172.20.147.14:5173`. API planera ma domyślny port `8080`. Plan pobiera propozycje i prognozę z Atrakcji oraz czasy i koszty przejazdów z Transportu. Adresy awaryjne zapisano w [konfiguracji backendu](backend/src/main/resources/application.yml). Uruchom z `DISCOVERY_ENABLED=true`, aby wyszukiwać adresy usług w rejestrze. Do wypróbowania danych przykładowych ustaw `PLANNER_DEMO=true`.
+Jeśli uruchamiasz oba moduły na komputerze planera wskazanym w rejestrze, otwórz `http://172.20.147.14:5173`. API planera ma domyślny port `8080`. Plan pobiera propozycje i prognozę z Atrakcji, przejazdy z Transportu oraz posiłki z Gastronomii. Adresy awaryjne zapisano w [konfiguracji backendu](backend/src/main/resources/application.yml). Uruchom z `DISCOVERY_ENABLED=true`, aby wyszukiwać adresy usług w rejestrze. Do wypróbowania danych przykładowych ustaw `PLANNER_DEMO=true`.
 
 ## Specyfikacja projektu
 

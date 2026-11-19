@@ -10,6 +10,7 @@ import { errorMessage, generatePlan, getAttraction } from './services/plannerApi
 const initialForm = {
   city: '', date: '', startTime: '09:00', endTime: '', lat: '', lng: '',
   transportMode: 'WALK', people: '1', includeGastronomy: false, returnToStart: false,
+  diet: '', mealBudget: '',
 }
 
 function focusSection(id) {
@@ -133,6 +134,8 @@ export default function App() {
       startLocation: { lat: Number(form.lat), lng: Number(form.lng) },
       transportMode: form.transportMode, people: Number(form.people), attractionIds: selectedIds,
       includeGastronomy: form.includeGastronomy, returnToStart: form.returnToStart,
+      diet: form.includeGastronomy ? form.diet || null : null,
+      maxBudgetGrosze: form.includeGastronomy && form.mealBudget !== '' ? Math.round(Number(form.mealBudget) * 100) : null,
     })
   }
 

@@ -48,10 +48,6 @@ public class IntegrationHttp {
             if (client == null) throw new IntegrationFailure(name, Reason.NOT_CONFIGURED);
         }
 
-        public IntegrationFailure waitingForContract() {
-            return new IntegrationFailure(name, Reason.CONTRACT_PENDING);
-        }
-
         public <T> T exchange(Function<WebClient, Mono<T>> request, boolean confirmedAttraction404) {
             requireConfigured();
             var target = discovery.lookup(key).map(this::atHost).orElse(client);

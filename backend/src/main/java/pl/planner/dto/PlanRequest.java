@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 public record PlanRequest(
@@ -22,7 +23,9 @@ public record PlanRequest(
         boolean includeGastronomy,
         @NotNull TransportMode transportMode,
         boolean returnToStart,
-        @Min(1) @Max(20) Integer people) {
+        @Min(1) @Max(20) Integer people,
+        Diet diet,
+        @PositiveOrZero Long maxBudgetGrosze) {
     public static final int MAX_ATTRACTIONS = 12;
 
     public int groupSize() {
@@ -30,4 +33,5 @@ public record PlanRequest(
     }
 
     public enum TransportMode { WALK, BIKE, PUBLIC_TRANSPORT, CAR }
+    public enum Diet { STANDARD, VEGETARIAN, VEGAN, GLUTEN_FREE }
 }

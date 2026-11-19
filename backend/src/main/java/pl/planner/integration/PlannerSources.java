@@ -1,7 +1,6 @@
 package pl.planner.integration;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import pl.planner.dto.Attraction;
@@ -28,7 +27,7 @@ public final class PlannerSources {
     }
 
     public interface Gastronomy {
-        List<Venue> venues(String city, LocalDate date);
+        List<MealProposal> proposals(String fromLocationId, PlanRequest request);
     }
 
     public record Journey(Integer minutes, BigDecimal distanceKm, Long priceGroszy,
@@ -42,7 +41,7 @@ public final class PlannerSources {
     public record DayData(Weather weather, List<DayProposal> proposals, String travelWarning) {}
     public record DayProposal(Attraction attraction, Journey fromStart, Journey toStart) {}
 
-    public record Venue(String id, String name, String address, Place coordinates,
-                        String category, Long priceGroszy, Integer durationMinutes,
-                        List<Attraction.OpeningWindow> openingHours, String transportLocationId) {}
+    public record MealProposal(String locationId, String mealId, String placeName, String mealName,
+                               int visitMinutes, long priceGroszy, Journey inbound, boolean transportFromCache,
+                               Place coordinates) {}
 }
