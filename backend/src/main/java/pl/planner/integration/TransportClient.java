@@ -20,7 +20,7 @@ public class TransportClient implements PlannerSources.Transport {
     private final ObjectProvider<Contract> contracts;
 
     public TransportClient(IntegrationHttp http, IntegrationProperties properties, ObjectProvider<Contract> contracts) {
-        this.endpoint = http.endpoint("Transport", properties.transport());
+        this.endpoint = http.endpoint("transport", "Transport", properties.transport());
         this.contracts = contracts;
     }
 

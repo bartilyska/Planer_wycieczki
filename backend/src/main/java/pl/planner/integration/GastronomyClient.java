@@ -20,7 +20,7 @@ public class GastronomyClient implements PlannerSources.Gastronomy {
     private final ObjectProvider<Contract> contracts;
 
     public GastronomyClient(IntegrationHttp http, IntegrationProperties properties, ObjectProvider<Contract> contracts) {
-        this.endpoint = http.endpoint("Gastronomia", properties.gastronomy());
+        this.endpoint = http.endpoint("gastronomy", "Gastronomia", properties.gastronomy());
         this.contracts = contracts;
     }
 

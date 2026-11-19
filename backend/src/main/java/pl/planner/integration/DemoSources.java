@@ -10,16 +10,20 @@ import org.springframework.stereotype.Component;
 import pl.planner.dto.Attraction;
 import pl.planner.dto.Attraction.OpeningWindow;
 import pl.planner.dto.Place;
+import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanRequest.TransportMode;
 import pl.planner.dto.PlanResponse.Condition;
 import pl.planner.dto.PlanResponse.Weather;
 import pl.planner.exception.PlanProblem;
+import pl.planner.integration.PlannerSources.Category;
+import pl.planner.integration.PlannerSources.DayData;
+import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Journey;
 import pl.planner.integration.PlannerSources.Venue;
 
 @Component
 @ConditionalOnProperty(name = "planner.demo", havingValue = "true")
-public class DemoSources implements PlannerSources.Attractions, PlannerSources.Forecast,
+public class DemoSources implements PlannerSources.Attractions,
         PlannerSources.Transport, PlannerSources.Gastronomy {
     private static final List<Attraction> ATTRACTIONS = List.of(
             attraction("lazienki", "Łazienki Królewskie", "Warszawa", "Zespół parkowo-pałacowy z ogrodami i Pałacem na Wyspie.", "Przyroda", false, 0, 90, 52.2149, 21.0356),
@@ -41,8 +45,19 @@ public class DemoSources implements PlannerSources.Attractions, PlannerSources.F
     }
 
     @Override
-    public Weather day(String city, LocalDate date) {
-        return new Weather(BigDecimal.valueOf(18), "Słonecznie · prognoza przykładowa", Condition.FAVORABLE_OUTDOOR, true);
+    public List<Category> categories() {
+        return ATTRACTIONS.stream().map(Attraction::category).distinct().sorted()
+                .map(name -> new Category(name, name)).toList();
+    }
+
+    @Override
+    public DayData day(PlanRequest request) {
+        var proposals = request.attractionIds().stream().map(this::detail).map(item ->
+                new DayProposal(new Attraction(item.id(), item.name(), item.location(), item.description(), item.category(),
+                        item.indoor(), item.priceGroszy() * request.groupSize(), item.durationMinutes(), item.coordinates(),
+                        item.openingHours()), null, null)).toList();
+        var weather = new Weather(BigDecimal.valueOf(18), "Słonecznie · prognoza przykładowa", Condition.FAVORABLE_OUTDOOR, true);
+        return new DayData(weather, proposals, null);
     }
 
     @Override

@@ -20,7 +20,8 @@ import pl.planner.dto.PlanResponse.Weather;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.exception.IntegrationFailure.Reason;
 import pl.planner.integration.PlannerSources.Attractions;
-import pl.planner.integration.PlannerSources.Forecast;
+import pl.planner.integration.PlannerSources.DayData;
+import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Gastronomy;
 import pl.planner.integration.PlannerSources.Journey;
 import pl.planner.integration.PlannerSources.Transport;
@@ -36,19 +37,18 @@ class PlannerServiceTest {
     private static final Place PARK = new Place(52.23, 21.01);
     private static final Place MUSEUM = new Place(52.24, 21.02);
     private final Attractions attractions = mock(Attractions.class);
-    private final Forecast forecast = mock(Forecast.class);
     private final Transport transport = mock(Transport.class);
     private final Gastronomy gastronomy = mock(Gastronomy.class);
-    private final PlannerService planner = new PlannerService(new AttractionCatalog(attractions), forecast,
+    private final PlannerService planner = new PlannerService(new AttractionCatalog(attractions),
             transport, gastronomy, new PlannerProperties(false, "http://localhost:5173"), new PlanOptimizer(),
             Clock.fixed(Instant.parse("2026-11-19T09:00:00Z"), ZoneOffset.UTC));
 
     @Test
     void previewsInManualOrderAndIncludesMealAndReturn() {
-        setAttractions();
-        when(forecast.day("Warszawa", DATE)).thenReturn(new Weather(BigDecimal.TEN, "Deszcz", Condition.ADVERSE_OUTDOOR, true));
+        var leg = new Journey(10, BigDecimal.ONE, 200L, "CAR", List.of());
+        setAttractions(leg, leg);
         when(transport.leg(any(), any(), eq(TransportMode.CAR)))
-                .thenReturn(new Journey(10, BigDecimal.ONE, 200L, "CAR", List.of()));
+                .thenReturn(leg);
         when(gastronomy.venues("Warszawa", DATE))
                 .thenReturn(List.of(new Venue("lunch", "Bistro", "Centrum", MUSEUM, "bistro", 3000L, 40, List.of())));
 
@@ -61,15 +61,13 @@ class PlannerServiceTest {
         assertEquals(5600L, plan.totalCostGroszy());
         assertEquals(LocalTime.of(13, 10), plan.items().getLast().endTime());
         assertTrue(plan.warnings().isEmpty());
-        verify(transport).leg(START, PARK, TransportMode.CAR);
         verify(transport).leg(PARK, MUSEUM, TransportMode.CAR);
-        verify(transport).leg(MUSEUM, START, TransportMode.CAR);
+        verifyNoMoreInteractions(transport);
     }
 
     @Test
     void optimizesForRainAndMarksMissingTimeAndCosts() {
-        setAttractions();
-        when(forecast.day("Warszawa", DATE)).thenReturn(new Weather(BigDecimal.TEN, "Deszcz", Condition.ADVERSE_OUTDOOR, true));
+        setAttractions(null, null);
         when(transport.leg(any(), any(), any()))
                 .thenThrow(new IntegrationFailure("Transport", Reason.NOT_CONFIGURED));
         when(gastronomy.venues("Warszawa", DATE))
@@ -87,15 +85,18 @@ class PlannerServiceTest {
         assertEquals(4, plan.warnings().size());
     }
 
-    private void setAttractions() {
-        when(attractions.detail("park")).thenReturn(new Attraction("park", "Park", "Warszawa", null,
-                "przyroda", false, 0L, 30, PARK, List.of()));
-        when(attractions.detail("museum")).thenReturn(new Attraction("museum", "Muzeum", "Warszawa", null,
-                "kultura", true, 2000L, 30, MUSEUM, List.of()));
+    private void setAttractions(Journey fromStart, Journey toStart) {
+        var park = new Attraction("park", "Park", "Warszawa", null,
+                "przyroda", false, 0L, 30, PARK, List.of());
+        var museum = new Attraction("museum", "Muzeum", "Warszawa", null,
+                "kultura", true, 2000L, 30, MUSEUM, List.of());
+        when(attractions.day(any())).thenReturn(new DayData(
+                new Weather(BigDecimal.TEN, "Deszcz", Condition.ADVERSE_OUTDOOR, true),
+                List.of(new DayProposal(park, fromStart, null), new DayProposal(museum, null, toStart)), null));
     }
 
     private PlanRequest request(boolean meal, boolean roundTrip) {
         return new PlanRequest("Warszawa", DATE, LocalTime.of(11, 0), LocalTime.of(18, 0), START,
-                List.of("park", "museum"), meal, TransportMode.CAR, roundTrip);
+                List.of("park", "museum"), meal, TransportMode.CAR, roundTrip, 1);
     }
 }

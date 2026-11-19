@@ -1,7 +1,7 @@
 package pl.planner.exception;
 
 public class IntegrationFailure extends RuntimeException {
-    public enum Reason { NOT_CONFIGURED, CONTRACT_PENDING, TIMEOUT, UNAVAILABLE, INVALID_RESPONSE, NO_DATA }
+    public enum Reason { NOT_CONFIGURED, CONTRACT_PENDING, TIMEOUT, UNAVAILABLE, INVALID_RESPONSE, NO_DATA, AUTHORIZATION }
 
     private final Reason reason;
 
@@ -17,6 +17,7 @@ public class IntegrationFailure extends RuntimeException {
             case UNAVAILABLE -> "usługa jest niedostępna.";
             case INVALID_RESPONSE -> "usługa zwróciła nieprawidłową odpowiedź.";
             case NO_DATA -> "usługa nie zwróciła danych.";
+            case AUTHORIZATION -> "usługa odrzuciła uwierzytelnienie. Sprawdź konfigurację dostępu.";
         }, cause);
         this.reason = reason;
     }

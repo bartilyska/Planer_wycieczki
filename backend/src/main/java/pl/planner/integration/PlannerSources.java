@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import pl.planner.dto.Attraction;
 import pl.planner.dto.Place;
+import pl.planner.dto.PlanRequest;
 import pl.planner.dto.PlanRequest.TransportMode;
 import pl.planner.dto.PlanResponse.Weather;
 
@@ -15,10 +16,8 @@ public final class PlannerSources {
     public interface Attractions {
         List<Attraction> list();
         Attraction detail(String id);
-    }
-
-    public interface Forecast {
-        Weather day(String city, LocalDate date);
+        List<Category> categories();
+        DayData day(PlanRequest request);
     }
 
     public interface Transport {
@@ -31,6 +30,10 @@ public final class PlannerSources {
 
     public record Journey(Integer minutes, BigDecimal distanceKm, Long priceGroszy,
                           String mode, List<Place> route) {}
+
+    public record Category(String code, String name) {}
+    public record DayData(Weather weather, List<DayProposal> proposals, String travelWarning) {}
+    public record DayProposal(Attraction attraction, Journey fromStart, Journey toStart) {}
 
     public record Venue(String id, String name, String address, Place coordinates,
                         String category, Long priceGroszy, Integer durationMinutes,

@@ -2,14 +2,15 @@ package pl.planner.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import pl.planner.config.IntegrationProperties;
 import pl.planner.config.PlannerProperties;
 import pl.planner.dto.PlanRequest;
+import pl.planner.dto.Place;
 import pl.planner.dto.PlannerOptions;
 import pl.planner.dto.PlannerOptions.Mode;
 import pl.planner.dto.PlannerOptions.Status;
@@ -41,25 +42,28 @@ public class OptionsService {
 
     public PlannerOptions options() {
         var catalogInfo = catalogOptions();
-        return new PlannerOptions(planner.demo(), LocalDate.now(clock), PlanRequest.MAX_ATTRACTIONS, catalogInfo.categories(),
-                List.of(new Mode(WALK, "Pieszo"), new Mode(BIKE, "Rower"), new Mode(PUBLIC_TRANSPORT, "Komunikacja miejska"),
-                        new Mode(CAR, "Samochód")),
+        var modes = planner.demo()
+                ? List.of(new Mode(WALK, "Pieszo"), new Mode(BIKE, "Rower"), new Mode(PUBLIC_TRANSPORT, "Komunikacja miejska"), new Mode(CAR, "Samochód"))
+                : List.of(new Mode(WALK, "Pieszo"), new Mode(PUBLIC_TRANSPORT, "Komunikacja miejska"), new Mode(CAR, "Samochód"));
+        return new PlannerOptions(planner.demo(), LocalDate.now(clock), PlanRequest.MAX_ATTRACTIONS,
+                List.copyOf(catalogInfo.categories().keySet()), modes,
                 Map.of("attractions", catalogInfo.status(),
-                        "weather", status(integration.attractions(), false),
+                        "weather", catalogInfo.status(),
                         "transport", status(integration.transport(), transport.getIfAvailable() != null),
                         "gastronomy", status(integration.gastronomy(), gastronomy.getIfAvailable() != null)),
-                true, true, catalogInfo.warning());
+                true, true, catalogInfo.warning(), catalogInfo.categories(),
+                planner.demo() ? null : new Place(52.2297, 21.0122));
     }
 
     private CatalogOptions catalogOptions() {
         try {
-            var categories = catalog.list(null, null).stream().map(Attraction::category)
-                    .filter(Objects::nonNull).filter(category -> !category.isBlank()).distinct().sorted().toList();
+            var categories = new LinkedHashMap<String, String>();
+            catalog.categories().forEach(category -> categories.putIfAbsent(category.code(), category.name()));
             return new CatalogOptions(categories, status(integration.attractions(), true), null);
         } catch (IntegrationFailure unavailable) {
             Status status = unavailable.reason() == IntegrationFailure.Reason.NOT_CONFIGURED
                     ? Status.NOT_CONFIGURED : Status.UNAVAILABLE;
-            return new CatalogOptions(List.of(), status, unavailable.getMessage());
+            return new CatalogOptions(Map.of(), status, unavailable.getMessage());
         }
     }
 
@@ -69,5 +73,5 @@ public class OptionsService {
         return contractReady ? Status.CONFIGURED : Status.CONTRACT_PENDING;
     }
 
-    private record CatalogOptions(List<String> categories, Status status, String warning) {}
+    private record CatalogOptions(Map<String, String> categories, Status status, String warning) {}
 }

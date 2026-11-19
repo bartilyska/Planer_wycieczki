@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -19,8 +21,13 @@ public record PlanRequest(
                 @NotBlank @Size(max = 150) @Pattern(regexp = "[^/\\\\%?#\\p{Cntrl}]+") String> attractionIds,
         boolean includeGastronomy,
         @NotNull TransportMode transportMode,
-        boolean returnToStart) {
+        boolean returnToStart,
+        @Min(1) @Max(20) Integer people) {
     public static final int MAX_ATTRACTIONS = 12;
+
+    public int groupSize() {
+        return people == null ? 1 : people;
+    }
 
     public enum TransportMode { WALK, BIKE, PUBLIC_TRANSPORT, CAR }
 }

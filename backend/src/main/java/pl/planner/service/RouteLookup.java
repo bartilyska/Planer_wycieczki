@@ -25,6 +25,12 @@ final class RouteLookup {
         this.warnings = warnings;
     }
 
+    void remember(Place from, Place to, Journey journey) {
+        if (from != null && to != null && journey != null) {
+            cache.putIfAbsent(new Segment(from, to), Optional.of(journey));
+        }
+    }
+
     Journey between(Place from, Place to) {
         if (from == null || to == null) {
             warnings.add("Dla części punktów brakuje współrzędnych potrzebnych do wyznaczenia dojazdu.");

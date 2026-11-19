@@ -4,7 +4,12 @@ import { errorMessage, getAttraction } from '../services/plannerApi'
 import { duration, indoorLabel, money } from './format'
 import { ErrorMessage, LoadingState } from './States'
 
-export default function AttractionDetails({ id, close }) {
+const weekdays = {
+  MONDAY: 'Poniedziałek', TUESDAY: 'Wtorek', WEDNESDAY: 'Środa', THURSDAY: 'Czwartek',
+  FRIDAY: 'Piątek', SATURDAY: 'Sobota', SUNDAY: 'Niedziela',
+}
+
+export default function AttractionDetails({ id, categoryLabels = {}, close }) {
   const dialog = useRef(null)
   const [state, setState] = useState({ loading: true })
 
@@ -34,11 +39,18 @@ export default function AttractionDetails({ id, close }) {
       {state.loading && <LoadingState label="Ładowanie szczegółów atrakcji" count={2} />}
       {state.error && <ErrorMessage>{state.error}</ErrorMessage>}
       {item && <>
-        <div className="metadata"><span><MapPin size={16} />{item.location || 'Lokalizacja niedostępna'}</span>
-          {item.category && <span>{item.category}</span>}<span>{indoorLabel(item.indoor)}</span></div>
+        <div className="metadata">{item.location && <span><MapPin size={16} />{item.location}</span>}
+          {item.category && <span>{categoryLabels[item.category] ?? item.category}</span>}<span>{indoorLabel(item.indoor)}</span></div>
         <p>{item.description || 'Opis niedostępny.'}</p>
-        <div className="detail-facts"><span><Ticket size={17} />{money(item.priceGroszy)}</span><span><Clock3 size={17} />{duration(item.durationMinutes)}</span></div>
+        <div className="detail-facts"><span><Ticket size={17} />{money(item.priceGroszy)}{item.priceGroszy != null && ' / os.'}</span><span><Clock3 size={17} />{duration(item.durationMinutes)}</span></div>
         {item.coordinates && <p className="muted">Współrzędne: {item.coordinates.lat}, {item.coordinates.lng}</p>}
+        {!!Object.keys(item.weeklyOpeningHours ?? {}).length && <details>
+          <summary>Godziny otwarcia</summary>
+          <ul>{Object.entries(weekdays).filter(([key]) => item.weeklyOpeningHours[key]).map(([key, name]) => {
+            const { from, to } = item.weeklyOpeningHours[key]
+            return <li key={key}>{name} {from.slice(0, 5)}–{to.slice(0, 5)}</li>
+          })}</ul>
+        </details>}
       </>}
     </dialog>
   )

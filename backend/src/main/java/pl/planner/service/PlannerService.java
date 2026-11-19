@@ -21,7 +21,7 @@ import pl.planner.dto.PlanResponse.Type;
 import pl.planner.dto.PlanResponse.Weather;
 import pl.planner.exception.IntegrationFailure;
 import pl.planner.exception.PlanProblem;
-import pl.planner.integration.PlannerSources.Forecast;
+import pl.planner.integration.PlannerSources.DayProposal;
 import pl.planner.integration.PlannerSources.Gastronomy;
 import pl.planner.integration.PlannerSources.Journey;
 import pl.planner.integration.PlannerSources.Transport;
@@ -30,17 +30,15 @@ import pl.planner.integration.PlannerSources.Venue;
 @Service
 public class PlannerService {
     private final AttractionCatalog catalog;
-    private final Forecast forecast;
     private final Transport transport;
     private final Gastronomy gastronomy;
     private final PlannerProperties properties;
     private final PlanOptimizer optimizer;
     private final Clock clock;
 
-    public PlannerService(AttractionCatalog catalog, Forecast forecast, Transport transport, Gastronomy gastronomy,
+    public PlannerService(AttractionCatalog catalog, Transport transport, Gastronomy gastronomy,
                           PlannerProperties properties, PlanOptimizer optimizer, Clock clock) {
         this.catalog = catalog;
-        this.forecast = forecast;
         this.transport = transport;
         this.gastronomy = gastronomy;
         this.properties = properties;
@@ -50,7 +48,8 @@ public class PlannerService {
 
     public PlanResponse plan(PlanRequest request, boolean optimize) {
         validate(request);
-        var attractions = request.attractionIds().stream().map(catalog::detail).toList();
+        var day = catalog.day(request);
+        var attractions = day.proposals().stream().map(DayProposal::attraction).toList();
         String city = request.city().strip();
         if (attractions.stream().anyMatch(attraction -> attraction.location() != null
                 && !attraction.location().isBlank()
@@ -59,13 +58,19 @@ public class PlannerService {
         }
 
         Set<String> warnings = new LinkedHashSet<>();
-        Weather weather = optional(() -> forecast.day(city, request.date()), Weather.unavailable(), warnings);
-        if (!weather.available() && warnings.isEmpty()) warnings.add("Pogoda — brak prognozy dla wybranego dnia.");
+        Weather weather = day.weather();
+        if (!weather.available()) warnings.add("Pogoda — Atrakcje nie udostępniły prognozy dla wybranego dnia.");
+        if (day.travelWarning() != null) warnings.add(day.travelWarning());
         List<Venue> venues = request.includeGastronomy()
                 ? optional(() -> gastronomy.venues(city, request.date()), null, warnings) : null;
 
         var schedule = new Schedule(request);
         var routes = new RouteLookup(transport, request.transportMode(), warnings);
+        for (var proposal : day.proposals()) {
+            var point = proposal.attraction().coordinates();
+            routes.remember(request.startLocation(), point, proposal.fromStart());
+            routes.remember(point, request.startLocation(), proposal.toStart());
+        }
         try {
             assemble(request, optimize, attractions, weather, venues, schedule, routes, warnings);
         } catch (PlanProblem failure) {

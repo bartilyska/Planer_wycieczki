@@ -11,13 +11,17 @@ management:
         include: health,info
 planner:
   demo: ${PLANNER_DEMO:false}
-  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173,http://172.20.147.15:5173}
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173,http://172.20.147.14:5173,http://172.20.147.15:5173}
 integration:
+  discovery:
+    enabled: ${DISCOVERY_ENABLED:false}
+    base-url: ${DISCOVERY_URL:http://172.20.147.20:8080}
   attractions:
-    base-url: ${ATTRACTIONS_URL:http://172.20.147.24:8080}
+    base-url: ${ATTRACTIONS_URL:http://172.20.147.24:8000}
     timeout: ${ATTRACTIONS_TIMEOUT:5000ms}
+    token: ${ATTRACTIONS_TOKEN:}
   transport:
-    base-url: ${TRANSPORT_URL:http://172.20.147.17:8080}
+    base-url: ${TRANSPORT_URL:http://172.20.147.17:8083}
     timeout: ${TRANSPORT_TIMEOUT:5000ms}
   gastronomy:
     base-url: ${GASTRONOMY_URL:http://172.20.147.27:8080}

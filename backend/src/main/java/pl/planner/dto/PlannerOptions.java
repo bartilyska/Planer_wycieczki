@@ -7,7 +7,8 @@ import pl.planner.dto.PlanRequest.TransportMode;
 
 public record PlannerOptions(boolean demo, LocalDate earliestDate, int maxAttractions,
                              List<String> categories, List<Mode> transportModes, Map<String, Status> integrations,
-                             boolean supportsEndTime, boolean supportsReturnToStart, String catalogWarning) {
+                             boolean supportsEndTime, boolean supportsReturnToStart, String catalogWarning,
+                             Map<String, String> categoryLabels, Place suggestedStart) {
     public record Mode(TransportMode value, String label) {}
     public enum Status { DEMO, NOT_CONFIGURED, CONFIGURED, CONTRACT_PENDING, UNAVAILABLE }
 }

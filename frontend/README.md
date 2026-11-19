@@ -11,7 +11,7 @@ npm install
 npm run dev -- --host 0.0.0.0
 ```
 
-Na komputerze planera otwórz `http://localhost:5173`, a z innego komputera w sieci otwórz `http://172.20.147.15:5173`. Domyślnie frontend wywołuje API pod tym samym hostem na porcie `8080`. Gdy frontend i backend działają na różnych komputerach, ustaw `VITE_API_BASE_URL` przez `.env` według `.env.example`. Dopuść również adres frontendu w `FRONTEND_ORIGIN` po stronie backendu. Oznaczenie trybu demo pochodzi z backendu.
+Na komputerze planera otwórz `http://localhost:5173`, a z innego komputera w sieci otwórz `http://172.20.147.14:5173`, jeśli planer działa na hoście wskazanym w rejestrze. Domyślnie frontend wywołuje API pod tym samym hostem na porcie `8080`. Gdy frontend i backend działają na różnych komputerach lub backend używa innego portu, ustaw `VITE_API_BASE_URL` przez `.env` według `.env.example`. Dopuść również adres frontendu w `FRONTEND_ORIGIN` po stronie backendu. Oznaczenie trybu demo pochodzi z backendu.
 
 ```bash
 npm run build
@@ -22,7 +22,7 @@ Podgląd kompilacji Vite korzysta domyślnie z portu 4173. Uruchom wtedy backend
 
 ## Obsługa
 
-Wybierz miasto z podpowiedzi katalogu lub wpisz je ręcznie. Po zaznaczeniu atrakcji możesz ustawić punkt startowy z jej szczegółów albo podać współrzędne. W gotowym harmonogramie przyciski kart pozwalają zmienić kolejność i usuwać atrakcje, a „Optymalizuj kolejność” wywołuje osobny endpoint. Mapa jest schematem punktów opartym na współrzędnych. Linia trasy jest wyświetlana, gdy odpowiedź planera zawiera geometrię przejazdu.
+W trybie integracji możesz ustawić punkt startowy przyciskiem „Użyj punktu startowego w Warszawie” albo podać własne współrzędne w obszarze obsługiwanym przez Atrakcje. Wybierz datę, sposób dojazdu, liczbę osób i atrakcje z katalogu. Podczas generowania backend sprawdza dostępność pozycji w propozycjach dla wybranych parametrów. W widoku harmonogramu możesz zmienić kolejność lub usunąć atrakcję. Mapa pokazuje punkty, a przebieg trasy pojawia się, gdy odpowiedź planera zawiera geometrię przejazdu.
 
 ## Ilustracja ekranu startowego
 
